@@ -1,0 +1,4 @@
+interface:
+  display_name: "VW Lease Rates"
+  short_description: "VW.de Such-URLs mit VWFS Leasingraten auswerten."
+  default_prompt: "Use $vw-lease-rates to evaluate a Volkswagen.de used-car search URL with VWFS leasing rates, mileage, down payment, terms, total cost, and vehicle links."

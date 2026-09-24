@@ -1,7 +1,18 @@
-# codex-duel and claude-duel
+# agent-skills
 
-Two mirror-image skills for a bounded adversarial review between Claude and
-OpenAI Codex.
+Skills for Claude Code and OpenAI Codex.
+
+| Skill | Runs in | Folder |
+| --- | --- | --- |
+| `codex-duel` | Claude Code | `claude-code/codex-duel` |
+| `claude-duel` | Codex | `codex/claude-duel` |
+| `bmw-lease-rates` | Claude Code and Codex | `shared/bmw-lease-rates` |
+| `vw-lease-rates` | Codex | `codex/vw-lease-rates` |
+
+## Duel skills
+
+`codex-duel` and `claude-duel` are two mirror-image skills for a bounded
+adversarial review between Claude and OpenAI Codex.
 
 `codex-duel` runs in Claude Code: Claude answers first, Codex attacks the
 answer, Claude integrates what survives, at most two Codex turns.
@@ -95,6 +106,55 @@ $claude-duel [flags] <question>
 - The helper checks the reviewer model on every assistant message in
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel, 25 minutes per turn.
+
+## bmw-lease-rates (runs in Claude Code and Codex)
+
+Calculates current BMW.de used-car lease rates for every vehicle in a
+filtered results URL, for a given term, annual mileage and down payment.
+Writes a Markdown table of private-customer gross rates and a JSON file with
+every quote.
+
+### Requirements
+
+- Node.js 18 or newer. No browser.
+
+### Install
+
+Copy `shared/bmw-lease-rates` to `~/.claude/skills/bmw-lease-rates` or
+`~/.codex/skills/bmw-lease-rates`.
+
+### Usage
+
+Give the agent a BMW.de Gebrauchtwagen results URL and ask for lease rates.
+The script also runs on its own:
+
+```
+node shared/bmw-lease-rates/scripts/bmw_lease_rates.mjs --url "<BMW_RESULTS_URL>" --term 36 --mileage 10000 --down-payment 0 --out .
+```
+
+## vw-lease-rates (runs in Codex)
+
+Calculates real VWFS private lease rates (PrivatLeasing) through VWFS
+WebCalc for every vehicle in a Volkswagen.de used-car search URL. Several
+terms per run are possible (`--terms 24-36`). Writes Markdown and JSON. The
+skill text is in German.
+
+### Requirements
+
+- Node.js 18 or newer. No browser.
+
+### Install
+
+Copy `codex/vw-lease-rates` to `~/.codex/skills/vw-lease-rates`.
+
+### Usage
+
+Give the agent a Volkswagen.de search URL and ask for lease rates. The script
+also runs on its own:
+
+```
+node codex/vw-lease-rates/scripts/vw_lease_rates.mjs --url "<VW_SEARCH_URL>" --terms 24-36 --mileage 10000 --down-payment 0 --out .
+```
 
 ## License
 

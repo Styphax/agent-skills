@@ -1,0 +1,4 @@
+interface:
+  display_name: "BMW Lease Rates"
+  short_description: "BMW.de Gebrauchtwagen-Leasingraten als Tabelle berechnen."
+  default_prompt: "Erstelle aus der aktuellen BMW.de Gebrauchtwagen-URL eine Tabelle der monatlichen Leasingraten für alle Suchergebnisse."
