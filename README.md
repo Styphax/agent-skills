@@ -8,6 +8,7 @@ Skills for Claude Code and OpenAI Codex.
 | `claude-duel` | Codex | `codex/claude-duel` |
 | `bmw-lease-rates` | Claude Code and Codex | `shared/bmw-lease-rates` |
 | `vw-lease-rates` | Codex | `codex/vw-lease-rates` |
+| `openrouter-agent` | Codex on Windows | `codex/openrouter-agent` |
 
 ## Duel skills
 
@@ -167,6 +168,50 @@ also runs on its own:
 ```
 node codex/vw-lease-rates/scripts/vw_lease_rates.mjs --url "<VW_SEARCH_URL>" --terms 24-36 --mileage 10000 --down-payment 0 --out .
 ```
+
+## openrouter-agent 1.1.0 (runs in Codex on Windows)
+
+Runs a bounded OpenRouter consultation in a separate Codex process while the
+parent Desktop session keeps its OpenAI provider and model catalog.
+
+### Requirements and install
+
+Windows, PowerShell 5.1 or newer, Node.js 20.3 or newer, the npm installation
+of Codex CLI and an OpenRouter API key. Copy `codex/openrouter-agent` to
+`~/.codex/skills/openrouter-agent`, then follow the included
+[setup instructions](codex/openrouter-agent/references/setup.md). The package
+includes its runtime, credential hook and isolated-configuration initializer.
+
+The default `@preset/z-ai-glm-5-3-flash` is an account-owned OpenRouter preset,
+not a public model ID. To reproduce it, create a preset with that slug,
+select `z-ai/glm-5.3-flash` and set reasoning effort to `max`. The original
+preset also enables `openrouter:datetime`, `openrouter:web_search` and
+`openrouter:web_fetch`. Those server tools can incur additional charges.
+Alternatively, pass `-Model z-ai/glm-5.3-flash -Effort max` to use the model
+directly without that preset or its tools. No account configuration or API
+key is included in this repository.
+
+### Usage
+
+Explicit invocation only:
+
+```text
+$openrouter-agent <bounded task>
+```
+
+The PowerShell helper also exposes `-Model`, `-ExpectedModel`, `-Effort`,
+`-MaxRequests`, `-TimeoutSeconds` and `-ValidateOnly`. Readiness reads current
+model and preset metadata without starting inference.
+
+The defaults are GLM 5.3 Flash with `max`, 25 minutes and at most eight
+forwarded Responses requests. Automatic retries are disabled. A temporary
+loopback gateway checks the responding model and enforces the request cap.
+The child runs read-only; the parent handles authorized edits. A request cap
+does not cap the cost of server-side tools or internal provider work.
+
+Verification for this release covered 24 offline tests, the real Codex CLI
+against simulated responses and read-only metadata checks. No paid inference
+was used for the update or publication.
 
 ## License
 
