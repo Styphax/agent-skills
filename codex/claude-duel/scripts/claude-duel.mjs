@@ -9,7 +9,7 @@ const DEFAULT_MODEL = 'claude-fable-5-1';
 const TIMEOUT_MS = 25 * 60 * 1000;
 
 export function parseArgs(argv) {
-  const options = { model: DEFAULT_MODEL, effort: 'high', resume: false, noWeb: false, dryRun: false };
+  const options = { model: DEFAULT_MODEL, effort: 'xhigh', resume: false, noWeb: false, dryRun: false };
   const values = { '--model': 'model', '--effort': 'effort', '--prompt-file': 'promptFile', '--state-file': 'stateFile' };
   const flags = { '--resume': 'resume', '--no-web': 'noWeb', '--dry-run': 'dryRun' };
   const seen = new Set();
@@ -47,6 +47,7 @@ export function findClaude() {
 export function buildArgs(options, sessionId) {
   const readTools = options.noWeb ? 'Read,Glob,Grep' : 'Read,Glob,Grep,WebSearch,WebFetch';
   return ['--print', '--safe-mode', '--model', options.model, '--effort', options.effort,
+    '--settings', JSON.stringify({ switchModelsOnFlag: false }),
     '--output-format', 'stream-json', '--verbose', '--permission-mode', 'dontAsk', '--tools', readTools,
     '--allowedTools', readTools, options.resume ? '--resume' : '--session-id', sessionId];
 }

@@ -29,7 +29,7 @@ where the models weigh differently, not a single conclusion. `--steer` adds
 one pause after the merge in which the user steers round 2 (deepen, drop,
 add).
 
-## codex-duel (runs in Claude Code)
+## codex-duel 1.4.0 (runs in Claude Code)
 
 ### Requirements
 
@@ -43,6 +43,10 @@ add).
 
 Copy `claude-code/codex-duel` to `~/.claude/skills/codex-duel`.
 
+For optional `max` effort with Codex Companion 1.0.6, see the included
+[patch and installation instructions](claude-code/codex-duel/patches/README.md).
+Plugin updates can replace that local change.
+
 ### Usage
 
 Manual only (`disable-model-invocation: true`). Invoke as:
@@ -53,14 +57,20 @@ Manual only (`disable-model-invocation: true`). Invoke as:
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--model` | `astra`, `sol`, `terra`, `luna`, or the full ids `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
-| `--effort` | `low`, `medium`, `high`, `xhigh` | `xhigh` |
+| `--model` | `astra`, `sol`, `terra`, `luna` or the full ids `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
 | `--fast` | no value | off |
 | `--wide` | no value | off |
 | `--steer` | no value, requires `--wide` | off |
 
+The aliases select `gpt-6-astra`, `gpt-6.1-sol`, `gpt-5.6-terra` and
+`gpt-6-luna`, respectively. Terra is a legacy option. Explicit full model
+IDs are preserved.
+
 ### Notable behavior
 
+- Pre-flight checks use the saved job ID, status and worker PID. A quiet
+  log alone is not a reason to cancel a job.
 - Read-only by default. File edits happen only if the underlying request
   explicitly asks for implementation or file changes.
 - `--fast` temporarily flips `service_tier` in `~/.codex/config.toml` to
@@ -72,12 +82,12 @@ Manual only (`disable-model-invocation: true`). Invoke as:
   turn, and the Codex plugin's SessionEnd hook then kills the duel's Codex
   jobs.
 
-## claude-duel (runs in Codex)
+## claude-duel 1.1.2 (runs in Codex)
 
 ### Requirements
 
 - Node.js.
-- An installed, authenticated Claude Code CLI, version 2.1.251 or newer for
+- An installed, authenticated Claude Code CLI, version 2.1.257 or newer for
   Fable 5.1.
 
 ### Install
@@ -95,7 +105,7 @@ $claude-duel [flags] <question>
 | Flag | Values | Default |
 | --- | --- | --- |
 | `--model` | `fable`, `fable-5.1`, `claude-fable-5-1`, or an explicitly requested full `claude-...` model ID | `claude-fable-5-1` |
-| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `high` |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
 | `--wide` | no value | off |
 | `--steer` | no value, requires `--wide` | off |
 
@@ -103,6 +113,8 @@ $claude-duel [flags] <question>
 
 - The reviewer (Claude Code) gets only `Read`, `Glob`, `Grep`, `WebSearch`,
   `WebFetch`. Pass `--no-web` to drop the two web tools.
+- The helper disables content-based automatic model switching for each
+  invocation with `switchModelsOnFlag: false`.
 - The helper checks the reviewer model on every assistant message in
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel, 25 minutes per turn.

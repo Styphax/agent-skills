@@ -1,10 +1,10 @@
 ---
 name: codex-duel
-description: Run a bounded adversarial exchange between Claude and Codex on one question, defaulting to GPT-6 Astra with xhigh reasoning effort; GPT-5.6 Sol, Terra and Luna and Codex fast mode are optional. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
+description: Run a bounded adversarial exchange between Claude and Codex on one question, defaulting to GPT-6 Astra with xhigh reasoning effort; GPT-6.1 Sol, GPT-6 Luna, legacy models, max effort and Codex fast mode are optional. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
 disable-model-invocation: true
 allowed-tools: Bash(node:*), Bash(ls:*)
 metadata:
-  version: 1.3.1
+  version: 1.4.0
 ---
 
 Run a bounded Claude-Codex review: Claude answers first, Codex attacks the
@@ -18,14 +18,16 @@ merges the lists into a map instead (see "Wide mode").
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--model` | `astra`, `sol`, `terra`, `luna` or the full ids `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
-| `--effort` | `low`, `medium`, `high`, `xhigh` | `xhigh` |
+| `--model` | `astra`, `sol`, `terra`, `luna` or the full ids `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
 | `--fast` | no value | off |
 | `--wide` | no value | off |
 | `--steer` | no value | off |
 
-- `astra` maps to `gpt-6-astra`; `sol`, `terra` and `luna` map to
-  `gpt-5.6-<name>`. Pass the full model id to the runtime script.
+- `astra` maps to `gpt-6-astra`, `sol` to `gpt-6.1-sol`, `luna` to
+  `gpt-6-luna`, and `terra` to the legacy model `gpt-5.6-terra`. Pass the
+  full model id to the runtime script. Explicit full ids are preserved,
+  including the previous-generation `gpt-6-sol` and the legacy GPT-5.6 ids.
 - With no model or effort flags, pass `--model gpt-6-astra --effort xhigh`.
   An explicit override changes only its own setting.
 - `--wide` switches to wide mode (see below). It combines with any model,
@@ -90,13 +92,39 @@ Codex desktop app has its own setting and is unaffected.
 node "$SCRIPT" status
 ```
 
-If a job shows `running` and its log file has not changed for more than two
-minutes, the process is dead. Cancel it first, otherwise a resume fails with
-"Task ... is still running":
+A quiet log is not evidence that a process is dead. Leave unrelated jobs
+untouched. For a job id saved by this duel, inspect the exact record:
 
 ```
-node "$SCRIPT" cancel <job-id>
+node "$SCRIPT" status <duel-job-id> --json
 ```
+
+If its stored status is `queued` or `running`, check the numeric worker
+`pid` from that record without sending a signal:
+
+```
+node -e 'const pid=Number(process.argv[1]); if (!Number.isInteger(pid) || pid<=0) { console.log("unknown: no valid worker PID"); process.exit(2); } try { process.kill(pid,0); console.log("alive"); } catch(e) { if(e.code==="ESRCH") console.log("dead"); else { console.log("unknown: "+(e.code||e.message)); process.exitCode=2; } }' <worker-pid>
+```
+
+For pre-flight cleanup, leave an `alive` or `unknown` worker alone. Missing
+PIDs and access errors are `unknown`, not proof of death. If the worker is
+`dead` (`ESRCH`), re-read the exact status and repeat the PID check just
+before cleanup. Only if this duel's same job is still `queued` or `running`
+and its current worker PID is still confirmed dead, clear that stale job:
+
+```
+node "$SCRIPT" cancel <duel-job-id>
+```
+
+Never use `cancel` without the saved full job id, or cancel another duel's
+job during pre-flight. If the record has finished, collect its result; if
+liveness cannot be established, report the blocker instead of guessing.
+
+Before an explicit `--effort max` turn, verify that the resolved runtime's
+`VALID_REASONING_EFFORTS` accepts `max`. Companion 1.0.6 needs the local
+parser patch, which a plugin update can overwrite. Pass `max` unchanged; if
+it is unsupported, stop and report the missing support. Never translate it
+to `xhigh` or silently downgrade.
 
 ### Start a turn
 
@@ -306,8 +334,9 @@ reached the same conclusion for substantially the same reasons.
 
 - Maximum Codex turns: 2
 - Maximum wall-clock per Codex turn: 25 minutes, then cancel
-- Models: `gpt-6-astra` (default), `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`
-- Efforts: `low`, `medium`, `high`, `xhigh` (default)
+- Models: `gpt-6-astra` (default), `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`,
+  and legacy `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`
+- Efforts: `low`, `medium`, `high`, `xhigh` (default), `max` (optional)
 - Fast mode: off unless `--fast`; always restored afterwards
 - Default file mode: read-only
 - File edits are permitted only when explicitly required by the underlying task
@@ -318,6 +347,19 @@ reached the same conclusion for substantially the same reasons.
   after the merge; round 2 must resume the round-1 session
 
 ## CHANGELOG
+
+### 1.4.0 (2026-10-02)
+
+- Updated aliases: `sol` selects `gpt-6.1-sol` and `luna` selects
+  `gpt-6-luna`. Terra remains a legacy option. Previous full model IDs
+  remain selectable, with `gpt-6-sol` also supported. The default stays
+  GPT-6 Astra with `xhigh`.
+- Added optional `max` effort and pass it through unchanged. Companion
+  1.0.6 needs the local parser patch. Check the selected runtime before
+  a `max` run because plugin updates can overwrite the patch.
+- Pre-flight checks use job status and worker PID instead of log age.
+  Cleanup is limited to confirmed dead jobs belonging to this duel.
+  Unrelated, active or uncertain jobs are left alone.
 
 ### 1.3.1 (2026-09-14)
 

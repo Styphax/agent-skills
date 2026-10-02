@@ -1,8 +1,8 @@
 ---
 name: claude-duel
-description: Run a bounded adversarial exchange between Codex and Claude Code on one question, using Claude Fable 5.1 with high effort by default, then return one integrated answer. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
+description: Run a bounded adversarial exchange between Codex and Claude Code on one question, using Claude Fable 5.1 with xhigh effort by default, then return one integrated answer. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
 metadata:
-  version: 1.1.1
+  version: 1.1.2
 ---
 
 Codex answers first, Claude Code challenges the answer, and Codex integrates
@@ -17,7 +17,7 @@ Parse optional flags followed by the question:
 | Flag | Values | Default |
 | --- | --- | --- |
 | `--model` | `fable`, `fable-5.1`, `claude-fable-5-1`, or an explicitly requested full `claude-...` model ID | `claude-fable-5-1` |
-| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `high` |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
 | `--wide` | no value | off |
 | `--steer` | no value | off |
 
@@ -68,18 +68,19 @@ user asks otherwise.
 ## Runtime
 
 Requires Node.js and an installed, authenticated Claude Code CLI. Fable 5.1
-requires Claude Code 2.1.251 or newer. Resolve this skill's `scripts/claude-duel.mjs`
+requires Claude Code 2.1.257 or newer. Resolve this skill's `scripts/claude-duel.mjs`
 relative to the installed SKILL.md. Run from the task's working directory.
 
 ```text
-node "<skill-dir>/scripts/claude-duel.mjs" --prompt-file "<work-dir>/round1.md" --state-file "<work-dir>/duel.json" --model claude-fable-5-1 --effort high
-node "<skill-dir>/scripts/claude-duel.mjs" --prompt-file "<work-dir>/round2.md" --state-file "<work-dir>/duel.json" --model claude-fable-5-1 --effort high --resume
+node "<skill-dir>/scripts/claude-duel.mjs" --prompt-file "<work-dir>/round1.md" --state-file "<work-dir>/duel.json" --model claude-fable-5-1 --effort xhigh
+node "<skill-dir>/scripts/claude-duel.mjs" --prompt-file "<work-dir>/round2.md" --state-file "<work-dir>/duel.json" --model claude-fable-5-1 --effort xhigh --resume
 ```
 
 Pass the selected overrides explicitly in both rounds. `--no-web` removes web
 tools; otherwise only Read, Glob, Grep, WebSearch and WebFetch are available.
 Claude receives no shell, write, connector, skill or delegation tools. Safe
-mode disables local customizations and hooks; include relevant task rules in
+mode disables local customizations and hooks; managed settings policy still
+applies, including policy-configured hooks. Include relevant task rules in
 the handoff. This is a tool restriction, not an operating-system sandbox:
 local read tools can access files permitted by Claude Code. The helper writes
 its own state and transcript files; Claude Code also persists its session.
@@ -87,8 +88,11 @@ its own state and transcript files; Claude Code also persists its session.
 The helper passes the prompt over stdin, uses no shell interpolation, pins
 model and effort on every turn, checks the model of every assistant message
 in Claude's structured event stream plus the requested model's usage, and
-resumes the exact saved session ID. It never uses `--continue`, a latest-session
-selector, a fallback model or a permission bypass. It refuses a third round,
+resumes the exact saved session ID. Each invocation passes
+`--settings '{"switchModelsOnFlag":false}'` to stop content-based automatic
+model switching; in non-interactive mode a flagged request ends with a refusal.
+The assistant-model check remains mandatory. It never uses `--continue`, a
+latest-session selector, a configured fallback model or a permission bypass. It refuses a third round,
 concurrent use of one state file, setting changes on resume, and resume after
 an incomplete or failed run.
 
@@ -208,6 +212,17 @@ the transcript unless asked, or claim consensus without actual agreement on
 the conclusion and its main reasons.
 
 ## CHANGELOG
+
+### 1.1.2 (2026-10-02)
+
+- Changed the default effort from `high` to `xhigh`; kept the pinned
+  `claude-fable-5-1` model. Updated the helper, examples and UI label together.
+- Disabled content-based automatic model switching per invocation with
+  `switchModelsOnFlag: false`; retained assistant-message model validation.
+- Corrected the documented Fable 5.1 minimum Claude Code version to 2.1.257
+  and clarified that managed settings policy still applies in safe mode.
+- Verified argument construction, exact-session resume, model-mismatch
+  rejection and the two-turn limit offline. No live model call in this update.
 
 ### 1.1.1 (2026-09-14)
 
