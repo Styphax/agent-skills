@@ -9,6 +9,7 @@ Skills for Claude Code and OpenAI Codex.
 | `bmw-lease-rates` | Claude Code and Codex | `shared/bmw-lease-rates` |
 | `vw-lease-rates` | Codex | `codex/vw-lease-rates` |
 | `openrouter-agent` | Codex on Windows | `codex/openrouter-agent` |
+| `clear-writing` | Claude Code | `claude-code/clear-writing` |
 
 ## Duel skills
 
@@ -212,6 +213,29 @@ does not cap the cost of server-side tools or internal provider work.
 Verification for this release covered 24 offline tests, the real Codex CLI
 against simulated responses and read-only metadata checks. No paid inference
 was used for the update or publication.
+
+## clear-writing 1.0.0 (runs in Claude Code)
+
+A light version of ASD-STE100 Simplified Technical English for agent answers,
+in English and German. It keeps 13 of 16 core rules: one word per thing, no
+private labels or undefined abbreviations, verbs for actions, one idea per
+sentence, no semicolons, vertical lists, main statement first, and a reason
+with every instruction. It leaves out the STE dictionary and the bans on
+perfect tenses and "-ing" forms, because those fit English manuals only.
+
+### Install
+
+Copy `claude-code/clear-writing` to `~/.claude/skills/clear-writing`.
+
+### Usage
+
+Manual only (`disable-model-invocation: true`):
+
+```text
+/clear-writing [text or task to apply it to]
+```
+
+Without an argument, the rules apply from the call to the end of the session.
 
 ## License
 
