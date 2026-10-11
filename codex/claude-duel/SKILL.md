@@ -2,7 +2,7 @@
 name: claude-duel
 description: Run a bounded adversarial exchange between Codex and Claude Code on one question, using Claude Fable 5.1 with xhigh effort by default, then return one integrated answer. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
 metadata:
-  version: 1.1.2
+  version: 1.1.3
 ---
 
 Codex answers first, Claude Code challenges the answer, and Codex integrates
@@ -34,6 +34,14 @@ if none is supplied. Preserve the surrounding conversation's constraints.
 Handoffs and the final response use the language of the question unless the
 user asks otherwise.
 
+## Handoff budgets
+
+Do not add research, time, token, cost or tool-call budgets to handoffs unless
+the user explicitly requests them. This applies to both rounds and to wide
+mode. Let the question and unresolved evidence needs determine research
+depth. Runtime timeouts remain execution controls; do not copy them into the
+prompt as a research budget.
+
 ## Workflow
 
 1. Announce the selected Claude model, effort and the active flags in one
@@ -52,8 +60,7 @@ user asks otherwise.
    unsupported claims; hidden assumptions; omitted alternatives or dependencies;
    strongest opposing position; evidence that would change the conclusion.
    Mark each substantive point `[verified]` or `[judgment call]`, cite evidence
-   for verified points, and identify missing evidence explicitly. Limit live
-   research to five minutes and ten search/fetch calls, then write the answer.
+   for verified points, and identify missing evidence explicitly.
 5. Run round 1 with the helper below. Read the returned result and assess each
    objection against evidence, logic and the user's constraints. Neither accept
    an objection merely because Claude made it nor average the two positions.
@@ -124,8 +131,8 @@ or any assistant message on another model still fails validation.
 ## Wide mode (`--wide`)
 
 For open or broad questions where the deliverable is the range of defensible
-answers, not one conclusion. Runtime, research budget, model pinning, tool
-restriction and error handling apply unchanged. Wide mode always uses both
+answers, not one conclusion. Runtime, model pinning, tool restriction and
+error handling apply unchanged. Wide mode always uses both
 Claude turns. It replaces workflow steps 2 to 7; step 1 applies as written.
 
 1. Form Codex's own candidate list in the format below before reading any
@@ -133,7 +140,7 @@ Claude turns. It replaces workflow steps 2 to 7; step 1 applies as written.
 
 2. Write the round-1 handoff: the exact question, material facts and
    constraints, known gaps in the facts, relevant source excerpts or file
-   paths, the research budget, and the format below. It contains none of
+   paths, and the format below. It contains none of
    Codex's candidates, leanings or candidate-specific doubts. The
    authorization and `--no-web` rules of standard step 3 apply. Instruct
    Claude to map the space of defensible answers, not to pick one.
@@ -212,6 +219,12 @@ the transcript unless asked, or claim consensus without actual agreement on
 the conclusion and its main reasons.
 
 ## CHANGELOG
+
+### 1.1.3 (2026-10-11)
+
+- Removed the default research budget from standard and wide-mode handoffs.
+- Handoff budgets now require an explicit user request. Runtime timeouts and
+  the two-turn limit are unchanged.
 
 ### 1.1.2 (2026-10-02)
 

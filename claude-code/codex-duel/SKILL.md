@@ -4,7 +4,7 @@ description: Run a bounded adversarial exchange between Claude and Codex on one 
 disable-model-invocation: true
 allowed-tools: Bash(node:*), Bash(ls:*)
 metadata:
-  version: 1.4.0
+  version: 1.4.1
 ---
 
 Run a bounded Claude-Codex review: Claude answers first, Codex attacks the
@@ -41,6 +41,14 @@ merges the lists into a map instead (see "Wide mode").
 - Preserve all material constraints from the surrounding conversation.
 - Handoffs and the final response use the language of the question unless
   the user asks otherwise.
+
+## Handoff budgets
+
+Do not add research, time, token, cost or tool-call budgets to handoffs unless
+the user explicitly requests them. This applies to both rounds and to wide
+mode. Let the question and unresolved evidence needs determine research
+depth. Runtime timeouts remain execution controls; do not copy them into the
+prompt as a research budget.
 
 ## Codex runtime
 
@@ -185,8 +193,6 @@ with Claude's own analysis marked as not adversarially reviewed.
    - Claude's provisional answer,
    - Claude's explicit uncertainties,
    - any claims for which the evidence is weak or incomplete,
-   - a research budget: at most 5 minutes of live checks and at most 10
-     fetches, then stop researching and write the answer,
    - the answer format: seven numbered sections (own conclusion, verified
      factual errors, overstated or unsupported claims, hidden assumptions,
      omitted alternatives or dependencies, strongest opposing position,
@@ -232,7 +238,7 @@ with Claude's own analysis marked as not adversarially reviewed.
 
 For open or broad questions where the deliverable is the range of defensible
 answers, not one conclusion. Runtime, pre-flight, background execution,
-research budget, model pinning and the read-only default apply unchanged.
+model pinning and the read-only default apply unchanged.
 Wide mode always uses both Codex turns. It replaces workflow steps 2 to 8;
 steps 1 and 9 apply as written.
 
@@ -240,8 +246,8 @@ steps 1 and 9 apply as written.
    Codex output.
 
 2. Round-1 handoff: the exact question, all material facts and constraints,
-   known gaps in the facts, relevant files or paths, the research budget,
-   and the format below. It contains none of Claude's candidates, leanings
+   known gaps in the facts, relevant files or paths, and the format below.
+   It contains none of Claude's candidates, leanings
    or candidate-specific doubts. Instruct Codex to map the space of
    defensible answers, not to pick one, and not to edit files unless the
    underlying user request explicitly asks for it.
@@ -347,6 +353,12 @@ reached the same conclusion for substantially the same reasons.
   after the merge; round 2 must resume the round-1 session
 
 ## CHANGELOG
+
+### 1.4.1 (2026-10-11)
+
+- Removed the default research budget from standard and wide-mode handoffs.
+- Handoff budgets now require an explicit user request. Runtime timeouts and
+  the two-turn limit are unchanged.
 
 ### 1.4.0 (2026-10-02)
 
