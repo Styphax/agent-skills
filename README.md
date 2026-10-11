@@ -24,10 +24,6 @@ answer, Codex integrates what survives, at most two Claude turns.
 
 Both skills return one integrated answer, not a transcript of the exchange.
 
-Handoffs have no default research, time, token, cost or tool-call budgets.
-Budgets are included only when the user explicitly requests them, in both
-standard and wide mode. The runtime timeout and two-turn limit still apply.
-
 Both also offer `--wide` for open or broad questions: round 1 is blind, both
 models list the defensible answers independently, the lead merges them with
 origin tags, and the final response is a map of candidates with the points
@@ -35,7 +31,7 @@ where the models weigh differently, not a single conclusion. `--steer` adds
 one pause after the merge in which the user steers round 2 (deepen, drop,
 add).
 
-## codex-duel 1.4.1 (runs in Claude Code)
+## codex-duel 1.4.2 (runs in Claude Code)
 
 ### Requirements
 
@@ -83,12 +79,12 @@ IDs are preserved.
   `"fast"` and restores it afterward. The toggle command reads
   `USERPROFILE`, so it works on Windows as written. On macOS or Linux,
   replace `USERPROFILE` with `HOME`.
-- Maximum two Codex turns per duel, 25 minutes wall-clock per turn.
+- Maximum two Codex turns per duel.
 - Interactive sessions only. Under `claude -p` the session ends with the
   turn, and the Codex plugin's SessionEnd hook then kills the duel's Codex
   jobs.
 
-## claude-duel 1.1.3 (runs in Codex)
+## claude-duel 1.1.4 (runs in Codex)
 
 ### Requirements
 
@@ -123,7 +119,7 @@ $claude-duel [flags] <question>
   invocation with `switchModelsOnFlag: false`.
 - The helper checks the reviewer model on every assistant message in
   Claude's structured event stream, not just on aggregate usage.
-- Maximum two Claude turns per duel, 25 minutes per turn.
+- Maximum two Claude turns per duel.
 
 ## bmw-lease-rates (runs in Claude Code and Codex)
 

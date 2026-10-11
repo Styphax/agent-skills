@@ -2,7 +2,7 @@
 name: claude-duel
 description: Run a bounded adversarial exchange between Codex and Claude Code on one question, using Claude Fable 5.1 with xhigh effort by default, then return one integrated answer. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
 metadata:
-  version: 1.1.3
+  version: 1.1.4
 ---
 
 Codex answers first, Claude Code challenges the answer, and Codex integrates
@@ -39,8 +39,7 @@ user asks otherwise.
 Do not add research, time, token, cost or tool-call budgets to handoffs unless
 the user explicitly requests them. This applies to both rounds and to wide
 mode. Let the question and unresolved evidence needs determine research
-depth. Runtime timeouts remain execution controls; do not copy them into the
-prompt as a research budget.
+depth.
 
 ## Workflow
 
@@ -105,9 +104,9 @@ an incomplete or failed run.
 
 Let the host execution tool yield a session ID instead of imposing a short
 foreground timeout. Wait with its native continuation tool and give brief
-progress updates. The helper enforces a 25-minute deadline per Claude turn
-and terminates the child on timeout or interruption. Do not infer a dead
-process merely from a quiet log. `--dry-run` shows resolved command arguments
+progress updates. The helper has no elapsed-time limit and terminates the
+child on interruption. Do not infer a dead process merely from a quiet
+log. `--dry-run` shows resolved command arguments
 without calling Claude or creating state.
 
 If the helper itself is forcibly killed, its lock can remain. Check the PID
@@ -219,6 +218,11 @@ the transcript unless asked, or claim consensus without actual agreement on
 the conclusion and its main reasons.
 
 ## CHANGELOG
+
+### 1.1.4 (2026-10-11)
+
+- Removed the helper's per-turn runtime deadline. Interruption handling and
+  the two-turn limit remain in place.
 
 ### 1.1.3 (2026-10-11)
 

@@ -4,7 +4,7 @@ description: Run a bounded adversarial exchange between Claude and Codex on one 
 disable-model-invocation: true
 allowed-tools: Bash(node:*), Bash(ls:*)
 metadata:
-  version: 1.4.1
+  version: 1.4.2
 ---
 
 Run a bounded Claude-Codex review: Claude answers first, Codex attacks the
@@ -47,8 +47,7 @@ merges the lists into a map instead (see "Wide mode").
 Do not add research, time, token, cost or tool-call budgets to handoffs unless
 the user explicitly requests them. This applies to both rounds and to wide
 mode. Let the question and unresolved evidence needs determine research
-depth. Runtime timeouts remain execution controls; do not copy them into the
-prompt as a research budget.
+depth.
 
 ## Codex runtime
 
@@ -155,17 +154,20 @@ status output that the "Codex session ID" is the one from round 1.
 
 ### Wait and collect
 
-Run in the background (Bash with `run_in_background: true`):
+Check the saved job in short foreground waits:
 
 ```
-node "$SCRIPT" status <job-id> --wait --timeout-ms 1500000
+node "$SCRIPT" status <job-id> --wait --timeout-ms 60000
 ```
 
-A foreground wait also works when `--timeout-ms` stays under the Bash
-limit (540000); `status --wait` only polls, so repeat it until the status is
-`completed`. Interactive sessions only: in a `claude -p` run the session
-ends with the turn, and the plugin's SessionEnd hook then kills this
-session's Codex jobs and drops their records.
+`--timeout-ms` limits only this status check; it does not stop the job.
+If the status is `queued` or `running`, repeat the check and give brief
+progress updates. There is no overall turn deadline. Do not cancel an active
+job because a wait ended or its log is quiet.
+
+Interactive sessions only: in a `claude -p` run the session ends with the
+turn, and the plugin's SessionEnd hook then kills this session's Codex jobs
+and drops their records.
 
 When it returns with status `completed`:
 
@@ -173,9 +175,8 @@ When it returns with status `completed`:
 node "$SCRIPT" result <job-id>
 ```
 
-That output is Codex's answer. If the status is still `running` after the
-wait (25 minutes), cancel the job, report the timeout to the user and finish
-with Claude's own analysis marked as not adversarially reviewed.
+That output is Codex's answer. If the job fails or is cancelled, report the
+available failure details and mark the review as incomplete.
 
 ## Workflow
 
@@ -339,7 +340,6 @@ reached the same conclusion for substantially the same reasons.
 ## Limits
 
 - Maximum Codex turns: 2
-- Maximum wall-clock per Codex turn: 25 minutes, then cancel
 - Models: `gpt-6-astra` (default), `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`,
   and legacy `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`
 - Efforts: `low`, `medium`, `high`, `xhigh` (default), `max` (optional)
@@ -353,6 +353,12 @@ reached the same conclusion for substantially the same reasons.
   after the merge; round 2 must resume the round-1 session
 
 ## CHANGELOG
+
+### 1.4.2 (2026-10-11)
+
+- Removed the per-turn runtime deadline. Status checks now repeat while the
+  job is active instead of cancelling it after a fixed wait.
+- The two-turn limit remains in place.
 
 ### 1.4.1 (2026-10-11)
 

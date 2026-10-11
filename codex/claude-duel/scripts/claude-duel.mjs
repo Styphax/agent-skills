@@ -6,7 +6,6 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_MODEL = 'claude-fable-5-1';
-const TIMEOUT_MS = 25 * 60 * 1000;
 
 export function parseArgs(argv) {
   const options = { model: DEFAULT_MODEL, effort: 'xhigh', resume: false, noWeb: false, dryRun: false };
@@ -97,14 +96,12 @@ function runClaude(executable, args, prompt, rawPath, stderrPath) {
       failure = new Error(reason);
       child.kill('SIGKILL'); // The reviewer has no shell or delegation tools.
     };
-    const timer = setTimeout(() => stop('Claude turn exceeded 25 minutes.'), TIMEOUT_MS);
     const interrupted = () => stop('Claude turn interrupted.');
     process.once('SIGINT', interrupted);
     process.once('SIGTERM', interrupted);
     child.once('error', error => { failure = error; });
     child.stdin.on('error', error => { failure ||= error; });
     child.once('close', code => {
-      clearTimeout(timer);
       process.removeListener('SIGINT', interrupted);
       process.removeListener('SIGTERM', interrupted);
       fs.closeSync(out);
@@ -122,7 +119,7 @@ export async function main(argv) {
   if (!prompt.trim()) throw new Error('Empty handoff file.');
   const executable = findClaude();
   if (options.dryRun) {
-    console.log(JSON.stringify({ executable, args: buildArgs(options, '<saved-or-new-session-uuid>'), cwd: process.cwd(), timeoutMs: TIMEOUT_MS }, null, 2));
+    console.log(JSON.stringify({ executable, args: buildArgs(options, '<saved-or-new-session-uuid>'), cwd: process.cwd(), timeoutMs: null }, null, 2));
     return;
   }
   const lock = `${options.stateFile}.lock`;
