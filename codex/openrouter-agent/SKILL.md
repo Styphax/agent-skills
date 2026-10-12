@@ -1,8 +1,8 @@
 ---
 name: openrouter-agent
-description: Use an isolated OpenRouter-backed Codex process for explicitly requested OpenRouter or open-weight model consultations, second opinions and model comparisons. Keep the parent Codex Desktop session on OpenAI. Reviewing or editing this skill does not authorize a paid consultation.
+description: Use only when the user explicitly requests an OpenRouter consultation, via $openrouter-agent or in natural language. Run an isolated OpenRouter-backed Codex process while keeping the parent session on OpenAI. General review or open-weight model requests and requests to explain or edit this skill do not authorize a consultation.
 metadata:
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # OpenRouter Agent
@@ -13,7 +13,14 @@ provider, configuration and model catalog.
 
 ## Invocation and limits
 
-Use this skill for an explicit OpenRouter consultation. One consultation is
+Use this skill only when the user explicitly requests an OpenRouter
+consultation, either with `$openrouter-agent` or in natural language (for
+example, "Lass das mit dem OpenRouter Agent prüfen"). A general request for
+a review, a second opinion or an open-weight model comparison does not
+authorize an OpenRouter run. Do not start a consultation proactively.
+Requests to explain, inspect or edit the skill do not authorize a consultation.
+
+One consultation is
 one agent run, which can contain several model requests as the child reads
 files or uses tools. It is not a promise of one billable API request.
 
@@ -78,3 +85,12 @@ Preflight is repeated before each real run.
 The old persistent proxy on port 43128 is not part of this version. A local
 test with Codex CLI 0.155.1 confirmed native `max` transmission. Offline tests
 exercise the wrapper and gateway; they do not prove current provider behavior.
+
+## CHANGELOG
+
+### 1.1.1 (2026-10-12)
+
+- Enabled skill discovery for explicit natural-language OpenRouter requests
+  as well as `$openrouter-agent`. The description and invocation rules require
+  an explicit OpenRouter consultation request; general reviews or open-weight
+  model requests do not authorize a run.

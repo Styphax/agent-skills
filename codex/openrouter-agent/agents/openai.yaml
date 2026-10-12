@@ -3,4 +3,4 @@ interface:
   short_description: "OpenRouter als isolierten Codex-Agenten befragen"
   default_prompt: "Nutze $openrouter-agent, um diese Aufgabe mit einem OpenRouter-Modell zu analysieren."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

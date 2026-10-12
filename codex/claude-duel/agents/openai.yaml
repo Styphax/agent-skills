@@ -3,4 +3,4 @@ interface:
   short_description: "Cross-check with Claude Fable 5.1 on X-high"
   default_prompt: "Use $claude-duel to have Claude Code adversarially review this question and deliver an integrated answer."
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

@@ -86,7 +86,7 @@ IDs are preserved.
   turn, and the Codex plugin's SessionEnd hook then kills the duel's Codex
   jobs.
 
-## claude-duel 1.1.4 (runs in Codex)
+## claude-duel 1.1.5 (runs in Codex)
 
 ### Requirements
 
@@ -100,7 +100,9 @@ Copy `codex/claude-duel` to `~/.codex/skills/claude-duel`.
 
 ### Usage
 
-Manual only (`allow_implicit_invocation: false`). Invoke as:
+Use only on an explicit user request to run Claude Duel. Ask Codex in
+natural language (for example, "Use Claude Duel to review this change") or
+invoke it directly:
 
 ```
 $claude-duel [flags] <question>
@@ -172,7 +174,7 @@ also runs on its own:
 node codex/vw-lease-rates/scripts/vw_lease_rates.mjs --url "<VW_SEARCH_URL>" --terms 24-36 --mileage 10000 --down-payment 0 --out .
 ```
 
-## openrouter-agent 1.1.0 (runs in Codex on Windows)
+## openrouter-agent 1.1.1 (runs in Codex on Windows)
 
 Runs a bounded OpenRouter consultation in a separate Codex process while the
 parent Desktop session keeps its OpenAI provider and model catalog.
@@ -196,7 +198,9 @@ key is included in this repository.
 
 ### Usage
 
-Explicit invocation only:
+Use only on an explicit user request for an OpenRouter consultation. Ask
+Codex in natural language (for example, "Have OpenRouter Agent review this
+change") or invoke it directly:
 
 ```text
 $openrouter-agent <bounded task>
@@ -212,7 +216,7 @@ loopback gateway checks the responding model and enforces the request cap.
 The child runs read-only; the parent handles authorized edits. A request cap
 does not cap the cost of server-side tools or internal provider work.
 
-Verification for this release covered 24 offline tests, the real Codex CLI
+Runtime verification for version 1.1.0 covered 24 offline tests, the real Codex CLI
 against simulated responses and read-only metadata checks. No paid inference
 was used for the update or publication.
 

@@ -1,14 +1,22 @@
 ---
 name: claude-duel
-description: Run a bounded adversarial exchange between Codex and Claude Code on one question, using Claude Fable 5.1 with xhigh effort by default, then return one integrated answer. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
+description: Use only when the user explicitly asks to run Claude Duel, via $claude-duel or in natural language. Run a bounded adversarial exchange between Codex and Claude Code on one question, using Claude Fable 5.1 with xhigh effort by default, then return one integrated answer. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
 metadata:
-  version: 1.1.4
+  version: 1.1.5
 ---
 
 Codex answers first, Claude Code challenges the answer, and Codex integrates
 what survives. Use at most two Claude turns. Keep the main Codex model unchanged.
 With `--wide`, both models list the defensible answers independently and Codex
 merges the lists into a map instead (see "Wide mode").
+
+## Invocation
+
+Use this skill only when the user explicitly asks to run Claude Duel, either
+with `$claude-duel` or in natural language (for example, "Lass das mit Claude
+Duel prüfen"). A general request for a review, a second opinion or a careful
+check does not authorize this skill. Do not start a duel proactively.
+Requests to explain, inspect or edit the skill do not authorize a duel.
 
 ## Arguments
 
@@ -218,6 +226,12 @@ the transcript unless asked, or claim consensus without actual agreement on
 the conclusion and its main reasons.
 
 ## CHANGELOG
+
+### 1.1.5 (2026-10-12)
+
+- Enabled skill discovery for explicit natural-language requests as well as
+  `$claude-duel`. The description and invocation rules require an explicit
+  user request to run Claude Duel; general review requests do not authorize it.
 
 ### 1.1.4 (2026-10-11)
 
