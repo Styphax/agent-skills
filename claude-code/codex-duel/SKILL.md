@@ -1,16 +1,23 @@
 ---
 name: codex-duel
-description: Run a bounded adversarial exchange between Claude and Codex on one question, defaulting to GPT-6 Astra with xhigh reasoning effort; GPT-6.1 Sol, GPT-6 Luna, legacy models, max effort and Codex fast mode are optional. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
-disable-model-invocation: true
+description: Use only when the user explicitly asks to run Codex Duel, by slash command or in natural language. Run a bounded adversarial exchange between Claude and Codex on one question, defaulting to GPT-6 Astra with xhigh reasoning effort; GPT-6.1 Sol, GPT-6 Luna, legacy models, max effort and Codex fast mode are optional. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
 allowed-tools: Bash(node:*), Bash(ls:*)
 metadata:
-  version: 1.4.2
+  version: 1.4.3
 ---
 
 Run a bounded Claude-Codex review: Claude answers first, Codex attacks the
 answer, Claude integrates what survives. At most two Codex turns. With
 `--wide`, both models list the defensible answers independently and Claude
 merges the lists into a map instead (see "Wide mode").
+
+## Invocation
+
+Use this skill only when the user explicitly asks to run Codex Duel, either
+with `/codex-duel` or in natural language (for example, "Lass das mit Codex
+Duel prüfen"). A general request for a review, a second opinion or a careful
+check does not authorize this skill. Do not start a duel proactively.
+Requests to explain, inspect or edit the skill do not authorize a duel.
 
 ## Arguments
 
@@ -353,6 +360,13 @@ reached the same conclusion for substantially the same reasons.
   after the merge; round 2 must resume the round-1 session
 
 ## CHANGELOG
+
+### 1.4.3 (2026-10-12)
+
+- Removed the technical invocation block so Claude can start the skill
+  on an explicit natural-language request as well as `/codex-duel`.
+- The description and invocation rules require an explicit user request
+  to run Codex Duel; general review requests do not authorize it.
 
 ### 1.4.2 (2026-10-11)
 

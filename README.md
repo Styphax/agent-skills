@@ -31,7 +31,7 @@ where the models weigh differently, not a single conclusion. `--steer` adds
 one pause after the merge in which the user steers round 2 (deepen, drop,
 add).
 
-## codex-duel 1.4.2 (runs in Claude Code)
+## codex-duel 1.4.3 (runs in Claude Code)
 
 ### Requirements
 
@@ -51,7 +51,9 @@ Plugin updates can replace that local change.
 
 ### Usage
 
-Manual only (`disable-model-invocation: true`). Invoke as:
+Use only on an explicit user request to run Codex Duel. Ask Claude in
+natural language (for example, "Use Codex Duel to review this change") or
+invoke it directly:
 
 ```
 /codex-duel [flags] <question>
