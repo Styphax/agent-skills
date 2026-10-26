@@ -1,468 +1,81 @@
 ---
 name: codex-duel
-description: Use only when the user explicitly asks to run Codex Duel, by slash command or in natural language. Run a bounded adversarial exchange between Claude and Codex on one question, defaulting to GPT-6 Astra with xhigh reasoning effort; GPT-6.1 Sol, GPT-6 Luna, legacy models, max effort and Codex fast mode are optional. With --wide, both models map the range of defensible answers instead of converging on one; --steer adds one pause for the user to steer round 2.
-allowed-tools: Bash(node:*), Bash(ls:*)
+description: Run a bounded Claude-Codex review only when the user explicitly requests Codex Duel. Supports a blind first pass and exploration of multiple answers. Inspecting or editing the skill does not start a duel.
+allowed-tools: Bash(node:*)
 metadata:
-  version: 1.4.3
+  version: 1.5.0
 ---
 
-Run a bounded Claude-Codex review: Claude answers first, Codex attacks the
-answer, Claude integrates what survives. At most two Codex turns. With
-`--wide`, both models list the defensible answers independently and Claude
-merges the lists into a map instead (see "Wide mode").
-
-## Invocation
-
-Use this skill only when the user explicitly asks to run Codex Duel, either
-with `/codex-duel` or in natural language (for example, "Lass das mit Codex
-Duel prüfen"). A general request for a review, a second opinion or a careful
-check does not authorize this skill. Do not start a duel proactively.
-Requests to explain, inspect or edit the skill do not authorize a duel.
-
-## Arguments
-
-`$ARGUMENTS` is parsed as optional flags followed by the question.
-
-| Flag | Values | Default |
-| --- | --- | --- |
-| `--model` | `astra`, `sol`, `terra`, `luna` or the full ids `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
-| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
-| `--fast` | no value | off |
-| `--wide` | no value | off |
-| `--steer` | no value | off |
-
-- `astra` maps to `gpt-6-astra`, `sol` to `gpt-6.1-sol`, `luna` to
-  `gpt-6-luna`, and `terra` to the legacy model `gpt-5.6-terra`. Pass the
-  full model id to the runtime script. Explicit full ids are preserved,
-  including the previous-generation `gpt-6-sol` and the legacy GPT-5.6 ids.
-- With no model or effort flags, pass `--model gpt-6-astra --effort xhigh`.
-  An explicit override changes only its own setting.
-- `--wide` switches to wide mode (see below). It combines with any model,
-  effort and fast setting.
-- `--steer` pauses wide mode once after the merge so the user can steer
-  round 2. It requires `--wide`; `--steer` alone: stop and ask the user.
-- Any other model or effort value: stop and ask the user. Never substitute
-  another model or effort, never downgrade silently.
-- The text after the flags is the exact question. If it is empty, use the
-  latest substantive user question in this conversation.
-- Preserve all material constraints from the surrounding conversation.
-- Handoffs and the final response use the language of the question unless
-  the user asks otherwise.
-
-## Handoff budgets
-
-Do not add research, time, token, cost or tool-call budgets to handoffs unless
-the user explicitly requests them. This applies to both rounds and to wide
-mode. Let the question and unresolved evidence needs determine research
-depth.
-
-## Codex runtime
-
-Runtime script (resolve once, reuse the path):
-
-```
-SCRIPT=$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs | tail -1)
-```
-
-Run every `node "$SCRIPT" ...` call from the repository root (the current
-working directory). Codex jobs are tracked per workspace.
-
-Rules:
-
-- Always `task --background`. Never `task --wait` and never a foreground
-  `task`: a Bash call is killed after 10 minutes, the Codex job then stays
-  marked "running" and blocks every later resume.
-- Do not go through the `codex:codex-rescue` subagent. It decides on its own
-  between foreground and background and does not return the job id reliably.
-- Read-only by default: no `--write` unless the user's request explicitly
-  asks for implementation or file changes.
-- Long handoffs go into a file in the scratchpad and are passed with
-  `--prompt-file <path>` instead of inline quoting.
-
-### Fast mode (only with `--fast`)
-
-Codex fast mode is the config key `service_tier` in `~/.codex/config.toml`
-(`"fast"` maps to priority processing). The plugin cannot pass it per run,
-but the Codex app-server re-reads the config for every new thread, so
-toggling the file is enough. No restart needed.
-
-Enable before round 1:
-
-```
-node -e "const fs=require('fs'),p=require('path').join(process.env.USERPROFILE,'.codex','config.toml');fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace(/^service_tier = .*$/m,'service_tier = \"fast\"'));console.log(fs.readFileSync(p,'utf8').match(/^service_tier = .*$/m)[0])"
-```
-
-Restore after the duel, also after any error, timeout or cancel (replace
-`fast` with `default` in the command above). Print the restored line. If the
-restore fails, tell the user in the final answer.
-
-Caveats to keep in mind: the key is global for Codex CLI and app-server runs,
-so other Codex CLI jobs started during the duel run in fast mode too. The
-Codex desktop app has its own setting and is unaffected.
-
-### Pre-flight (before every Codex turn)
-
-```
-node "$SCRIPT" status
-```
-
-A quiet log is not evidence that a process is dead. Leave unrelated jobs
-untouched. For a job id saved by this duel, inspect the exact record:
-
-```
-node "$SCRIPT" status <duel-job-id> --json
-```
-
-If its stored status is `queued` or `running`, check the numeric worker
-`pid` from that record without sending a signal:
-
-```
-node -e 'const pid=Number(process.argv[1]); if (!Number.isInteger(pid) || pid<=0) { console.log("unknown: no valid worker PID"); process.exit(2); } try { process.kill(pid,0); console.log("alive"); } catch(e) { if(e.code==="ESRCH") console.log("dead"); else { console.log("unknown: "+(e.code||e.message)); process.exitCode=2; } }' <worker-pid>
-```
-
-For pre-flight cleanup, leave an `alive` or `unknown` worker alone. Missing
-PIDs and access errors are `unknown`, not proof of death. If the worker is
-`dead` (`ESRCH`), re-read the exact status and repeat the PID check just
-before cleanup. Only if this duel's same job is still `queued` or `running`
-and its current worker PID is still confirmed dead, clear that stale job:
-
-```
-node "$SCRIPT" cancel <duel-job-id>
-```
-
-Never use `cancel` without the saved full job id, or cancel another duel's
-job during pre-flight. If the record has finished, collect its result; if
-liveness cannot be established, report the blocker instead of guessing.
-
-Before an explicit `--effort max` turn, verify that the resolved runtime's
-`VALID_REASONING_EFFORTS` accepts `max`. Companion 1.0.6 needs the local
-parser patch, which a plugin update can overwrite. Pass `max` unchanged; if
-it is unsupported, stop and report the missing support. Never translate it
-to `xhigh` or silently downgrade.
-
-### Start a turn
-
-Round 1 (fresh thread):
-
-```
-node "$SCRIPT" task --background --model <model> --effort <effort> --prompt-file <handoff-file>
-```
-
-Round 2 (same thread):
-
-```
-node "$SCRIPT" task --background --resume-last --model <model> --effort <effort> --prompt-file <handoff-file>
-```
-
-The output line "Codex Task started in the background as task-..." carries
-the job id. Keep it. `--resume-last` picks the newest tracked task thread in
-this repository, so start round 2 directly after round 1 and check in the
-status output that the "Codex session ID" is the one from round 1.
-
-### Wait and collect
-
-Check the saved job in short foreground waits:
-
-```
-node "$SCRIPT" status <job-id> --wait --timeout-ms 60000
-```
-
-`--timeout-ms` limits only this status check; it does not stop the job.
-If the status is `queued` or `running`, repeat the check and give brief
-progress updates. There is no overall turn deadline. Do not cancel an active
-job because a wait ended or its log is quiet.
-
-Interactive sessions only: in a `claude -p` run the session ends with the
-turn, and the plugin's SessionEnd hook then kills this session's Codex jobs
-and drops their records.
-
-When it returns with status `completed`:
-
-```
-node "$SCRIPT" result <job-id>
-```
-
-That output is Codex's answer. If the job fails or is cancelled, report the
-available failure details and mark the review as incomplete.
-
-## Workflow
-
-1. Parse the flags and the question. Confirm model, effort and the active
-   flags in one line to the user before starting.
-
-2. Independently analyze the question and form Claude's provisional answer
-   before consulting Codex.
-
-3. Prepare a focused handoff file containing:
-
-   - the exact question,
-   - all material facts and constraints,
-   - relevant files or paths,
-   - Claude's provisional answer,
-   - Claude's explicit uncertainties,
-   - any claims for which the evidence is weak or incomplete,
-   - the answer format: seven numbered sections (own conclusion, verified
-     factual errors, overstated or unsupported claims, hidden assumptions,
-     omitted alternatives or dependencies, strongest opposing position,
-     evidence that would change the conclusion), each point marked as
-     verified or judgment call.
-
-   Instruct Codex to work independently before reacting to Claude's answer,
-   to give its own conclusion, not to manufacture disagreement, and not to
-   edit files unless the underlying user request explicitly asks for
-   implementation or file changes.
-
-4. If `--fast` is set, enable fast mode. Run the pre-flight. Start round 1,
-   wait, collect.
-
-5. Evaluate every Codex objection independently.
-
-   Do not accept an objection merely because Codex made it.
-   Do not average Claude's and Codex's positions.
-   Do not manufacture consensus.
-   Resolve disagreements based on evidence, logic, and the user's constraints.
-
-6. If no material disagreement remains, stop the inter-agent exchange and
-   produce the final answer.
-
-7. If a material disagreement remains, perform exactly one follow-up turn
-   with `--resume-last`. The round-2 handoff file contains:
-
-   - Codex's previous conclusion,
-   - Claude's response to each material objection,
-   - the evidence supporting Claude's response,
-   - the exact unresolved disagreements.
-
-   Ask Codex to reconsider only the remaining material disagreements, concede
-   points that Claude has adequately answered, defend points that remain
-   valid, identify any new evidence that materially changes the conclusion,
-   and avoid repeating resolved points.
-
-8. After the second Codex turn, stop. Do not initiate another round.
-
-9. If `--fast` was set, restore `service_tier = "default"`.
-
-## Wide mode (`--wide`)
-
-For open or broad questions where the deliverable is the range of defensible
-answers, not one conclusion. Runtime, pre-flight, background execution,
-model pinning and the read-only default apply unchanged.
-Wide mode always uses both Codex turns. It replaces workflow steps 2 to 8;
-steps 1 and 9 apply as written.
-
-1. Form Claude's own candidate list in the format below before reading any
-   Codex output.
-
-2. Round-1 handoff: the exact question, all material facts and constraints,
-   known gaps in the facts, relevant files or paths, and the format below.
-   It contains none of Claude's candidates, leanings
-   or candidate-specific doubts. Instruct Codex to map the space of
-   defensible answers, not to pick one, and not to edit files unless the
-   underlying user request explicitly asks for it.
-
-   Candidate-list format, used by both models:
-
-   - As many genuinely distinct, relevant candidates as the question
-     supports. Do not pad. Depending on the question, candidates are
-     options, explanations or perspectives; unconventional ones are
-     welcome and marked as such.
-   - Per candidate: a short description, its main support, the conditions
-     under which it holds or is the best choice, and its main weakness.
-     Mark each factual claim `[verified]` with evidence or
-     `[judgment call]`.
-   - Closing: assumptions that would change the list, and evidence that
-     would rule candidates in or out.
-
-3. If `--fast` is set, enable fast mode. Run the pre-flight. Start round 1,
-   wait, collect. Merge both lists into one union. Combine two entries only
-   if no relevant difference in preconditions, mechanism or consequences is
-   lost; otherwise keep them separate. Tag each entry `[Claude]`, `[Codex]`
-   or `[both]`; `[both]` means both models proposed it independently, not
-   that they weigh it the same. Add Claude's assessment per entry: agree,
-   disagree with reason, or evidence missing.
-
-4. With `--steer`: pause here. If `--fast` is set, restore
-   `service_tier = "default"` first, so the pause has no global side
-   effect. Show the user the union in compact form, one line per entry
-   with origin tag, name and Claude's assessment, and ask for steering:
-   entries to deepen, entries to drop, perspectives or constraints to add,
-   or "continue". End the turn and wait for the answer; do not start round
-   2 before it. Keep the round-1 job id and Codex session ID. Entries the
-   user drops leave the list and are not sent to Codex; renumber the rest so
-   gaps do not reveal what was dropped. If `--fast` is set, enable fast mode
-   again before round 2.
-
-5. Round-2 handoff with `--resume-last`: the merged, tagged list with
-   Claude's assessments, and the exact entries where Claude's assessment
-   differs from Codex's or where Codex gave none. With `--steer`, also the
-   user's steering: which entries to deepen, which were dropped by the
-   user, what to add. Ask
-   Codex to add candidates still missing, undo merges that lost a relevant
-   difference, challenge weak entries with reasons, rank the list where
-   candidates are comparable and state the criteria, and say where and why
-   it weighs differently than Claude. It must not repeat descriptions
-   already in the list. After starting, check the status output: the
-   "Codex session ID" must be the one from round 1. `--resume-last` picks
-   the newest tracked thread in this repository, and after a pause that can
-   be another job. On mismatch, cancel the job, do not retry, and report.
-
-6. Start round 2, wait, collect, stop. Fold Codex's additions and challenges
-   into the union. Claude decides the weight of every entry and does not
-   average the two rankings.
-
-### Final response in wide mode
-
-- The union as a map: every surviving candidate with origin tag, when it
-  holds or is the best choice, its main weakness, and Claude's assessment.
-  Candidates refuted during the exchange appear in one line each with the
-  reason, not as options. Entries dropped by the user appear as dropped by
-  the user, not as refuted. Claims refuted inside a surviving candidate
-  appear under it, one line each.
-- The divergences that remain after round 2: where the two models rank or
-  weigh differently, with each side's reason. Left open, not averaged. Do
-  not keep resolved differences open.
-- Claude's own recommendation only if the question asks for one, marked as
-  Claude's judgment.
-- The assumptions that bound the map. Do not call the map complete.
-- One line naming model, effort, fast mode, wide mode, steering and the two
-  Codex turns. With `--steer`, one line on what the user steered.
-
-## Final response
-
-Wide mode uses its own final response, described above. Otherwise return
-one integrated answer containing:
-
-- the best-supported conclusion,
-- the reasoning that survived adversarial review,
-- corrections made because of the Codex review,
-- any genuinely unresolved disagreement,
-- calibrated confidence where uncertainty remains,
-- one line naming model, effort, fast mode and number of Codex turns used.
-
-Do not dump the inter-agent transcript unless the user explicitly requests it.
-
-Do not describe the answer as a consensus unless Claude and Codex actually
-reached the same conclusion for substantially the same reasons.
-
-## Limits
-
-- Maximum Codex turns: 2
-- Models: `gpt-6-astra` (default), `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`,
-  and legacy `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`
-- Efforts: `low`, `medium`, `high`, `xhigh` (default), `max` (optional)
-- Fast mode: off unless `--fast`; always restored afterwards
-- Default file mode: read-only
-- File edits are permitted only when explicitly required by the underlying task
-- Never silently fall back to another model, effort or tier
-- Wide mode: off unless `--wide`; always two Codex turns; round-1 handoff
-  without Claude's candidates
-- Steering: off unless `--steer`; only with `--wide`; exactly one pause,
-  after the merge; round 2 must resume the round-1 session
-
-## CHANGELOG
-
-### 1.4.3 (2026-10-12)
-
-- Removed the technical invocation block so Claude can start the skill
-  on an explicit natural-language request as well as `/codex-duel`.
-- The description and invocation rules require an explicit user request
-  to run Codex Duel; general review requests do not authorize it.
-
-### 1.4.2 (2026-10-11)
-
-- Removed the per-turn runtime deadline. Status checks now repeat while the
-  job is active instead of cancelling it after a fixed wait.
-- The two-turn limit remains in place.
-
-### 1.4.1 (2026-10-11)
-
-- Removed the default research budget from standard and wide-mode handoffs.
-- Handoff budgets now require an explicit user request. Runtime timeouts and
-  the two-turn limit are unchanged.
-
-### 1.4.0 (2026-10-02)
-
-- Updated aliases: `sol` selects `gpt-6.1-sol` and `luna` selects
-  `gpt-6-luna`. Terra remains a legacy option. Previous full model IDs
-  remain selectable, with `gpt-6-sol` also supported. The default stays
-  GPT-6 Astra with `xhigh`.
-- Added optional `max` effort and pass it through unchanged. Companion
-  1.0.6 needs the local parser patch. Check the selected runtime before
-  a `max` run because plugin updates can overwrite the patch.
-- Pre-flight checks use job status and worker PID instead of log age.
-  Cleanup is limited to confirmed dead jobs belonging to this duel.
-  Unrelated, active or uncertain jobs are left alone.
-
-### 1.3.1 (2026-09-14)
-
-- First live run with `--wide --steer` (GPT-6 Astra, xhigh, Claude Opus 5
-  as lead): round 1 6:40 min, round 2 9:03 min, 16 + 19 blind candidates,
-  union of 25, 21 after steering. All three steering paths and the resume
-  of the round-1 session worked.
-- Six text fixes from that run: language follows the question; renumber
-  after user drops so gaps reveal nothing; in round 2 also mark entries
-  without a Codex assessment; list refuted claims inside surviving
-  candidates; foreground waiting with a short timeout allowed; interactive
-  sessions only, because the plugin's SessionEnd hook kills the Codex jobs
-  under `claude -p`.
-
-### 1.3.0 (2026-09-14)
-
-- New `--wide` mode for open or broad questions. Round 1 is blind: the
-  handoff carries the question, facts, gaps and constraints but none of
-  Claude's candidates. Both models list the defensible answers
-  independently (options, explanations or perspectives), Claude merges the
-  lists with origin tags, round 2 adds, checks merges, challenges weak
-  entries and ranks where candidates are comparable. The final response is
-  a map of surviving candidates with the remaining weighting differences,
-  not a single conclusion. Always two Codex turns; runtime, pinning and
-  read-only unchanged.
-- Reason: the standard mode is built to test and condense one answer. It
-  asks for omitted alternatives but does not secure a systematic survey of
-  several answers: the reviewer sees the provisional answer, the exchange
-  stops on agreement after round 1, and the final response demands a
-  conclusion.
-- New `--steer` flag, only with `--wide`: one pause after the merge in
-  which the user steers round 2 (deepen, drop, add). Idea from Lenny's
-  Newsletter, "How to turn your AI into a world-class designer": feeding AI
-  ideas back into the AI unfiltered yields results anyone gets; the human
-  step between iterations makes the difference. Because the plugin only
-  offers `--resume-last`, round 2 must confirm the round-1 session ID after
-  the pause. With `--fast`, the tier is reset for the pause.
-- Draft reviewed via codex-duel (GPT-6 Astra, xhigh, one round); candidate
-  format, merge rule and handling of rejected candidates taken from that
-  review.
-
-### 1.2.0 (2026-09-04)
-
-- Switched the default model to GPT-6 Astra (`gpt-6-astra`); reasoning effort
-  stays `xhigh`. Without flags, both values are passed explicitly.
-- Added `--model astra` and `--model gpt-6-astra`. Sol, Terra and Luna
-  remain selectable; their previous short forms still apply.
-
-### 1.1.0 (2026-09-03)
-
-- Codex now runs in the background (`task --background`), with waiting via
-  `status --wait` and collecting via `result`. Reason: in the foreground the
-  call died after 10 minutes, the job stayed marked "running" in the plugin
-  status, and blocked every resume.
-- The subagent `codex:codex-rescue` is no longer used. It decides on its own
-  between foreground and background and does not return the job id
-  reliably. Instead, the plugin script is called directly.
-- Pre-flight: hanging jobs are cleaned up with `cancel` before every turn.
-- New flags: `--model sol|terra|luna`, `--effort low|medium|high|xhigh`,
-  `--fast`. Fast switches `service_tier` in `~/.codex/config.toml` to "fast"
-  for the duration of the duel and back afterwards. Checked on 2026-09-03:
-  the running app server re-reads the config per thread, no restart needed.
-- The handoff now contains a research budget and a fixed answer format.
-- Long handoffs go via `--prompt-file` instead of as a shell argument.
-
-### 1.0.0 (2026-09-03)
-
-- Initial version. Built from scratch, not imported. Purpose: have a
-  question reviewed against GPT-5.6 Sol, in at most two Codex rounds, and
-  build one integrated answer from it instead of a transcript.
-- Uses the Codex plugin subagent `codex:codex-rescue`, not the skills
-  `codex:rescue` / `codex:codex-rescue`.
-- Model and effort are fixed: `gpt-5.6-sol`, `xhigh`. A silent fallback to
-  another model is explicitly forbidden.
+Claude leads; Codex reviews. Keep the lead model unchanged. Use at most
+two reviewer turns, then the lead decides from evidence. Do not average
+positions, manufacture disagreement, or require consensus.
+
+## Options
+
+Parse flags before the question. If absent, use the latest substantive
+question. Preserve the conversation's constraints and language.
+
+| Flag | Meaning |
+| --- | --- |
+| `--model ID` | Reviewer model; default `gpt-6-astra`. Aliases in [runtime](references/runtime.md). |
+| `--effort LEVEL` | `low`, `medium`, `high`, `xhigh` (default), `max`. |
+| `--blind` | Independently answer first, then compare and challenge in round 2. |
+| `--wide` | Map viable answers instead of converging on one; includes a blind first pass. |
+| `--steer` | With `--wide`, pause after merging options for user direction. |
+| `--fast` | Request fast processing for this duel only; leave saved settings untouched. |
+
+Unknown options require clarification. Never silently substitute settings.
+`--blind --wide` is valid but redundant; `--steer` requires `--wide`.
+
+## Review
+
+For every mode, write UTF-8 handoffs under a unique workspace `work/`
+directory. Include the exact question, facts, constraints, relevant sources
+and evidence gaps; only authorized material, never secrets. Do not impose
+research, time, token, cost or tool budgets unless the user asks. Require
+evidence for verified claims, distinguish judgment and identify gaps.
+Keep review read-only unless implementation is explicitly authorized;
+prohibit further delegation in the handoff.
+
+1. Announce the reviewer, requested effort and modes. Form the lead's own
+   provisional answer before reading reviewer output. For `--wide`, use the
+   short [wide workflow](references/wide.md) instead of steps 2-4.
+2. Prepare the first handoff:
+   - **Standard:** include the provisional answer and its weak points. Ask
+     for its own conclusion, factual corrections, unsupported claims, hidden
+     assumptions, missing alternatives, strongest counterargument and
+     evidence that would change the conclusion. No fixed headings needed.
+   - **Blind:** withhold the lead's answer, leanings and answer-specific
+     doubts, including files that reveal them. Ask for an independent
+     conclusion, support, assumptions, alternatives and uncertainties.
+3. Run round 1 using [runtime](references/runtime.md). Assess the findings
+   against evidence and user constraints. Standard mode stops if no material
+   disagreement remains. Blind mode always uses round 2: reveal the lead's
+   independently formed answer and compare the conclusions and reasons.
+4. For round 2, resume this duel's exact session. Send the lead's assessment,
+   supporting evidence, corrections and unresolved questions. Ask the
+   reviewer to challenge what remains, concede answered points and avoid
+   repeating resolved findings. Stop after this turn.
+
+## Verify code changes
+
+If implementation is authorized, apply accepted corrections and inspect the
+final diff. Run the relevant tests, build or behavior checks on the final
+revised files, after the last edit. When round 2 is still available, give the
+reviewer the revised artifact and check results, not just an explanation of
+the fix. If edits follow round 2, rerun affected checks yourself; do not add
+a third reviewer turn. Report what was actually checked and any blocked or
+unverified behavior. Agreement alone is not verification. Review-only tasks
+do not authorize edits.
+
+## Result
+
+Return one integrated answer: conclusion and surviving reasoning, material
+corrections, remaining disagreements and uncertainty. Include code-check
+results where applicable and one line with reviewer, requested effort,
+active modes and completed turns. Do not claim consensus unless both agree
+on the conclusion and main reasons. Do not include transcripts unless asked.
+
+On failure or missing required runtime evidence, stop and report the limit;
+no automatic retry or replacement reviewer. Distinguish a completed first
+review from a failed follow-up.
