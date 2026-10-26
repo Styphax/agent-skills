@@ -22,7 +22,16 @@ answer, Claude integrates what survives, at most two Codex turns.
 `claude-duel` runs in Codex: Codex answers first, Claude Code attacks the
 answer, Codex integrates what survives, at most two Claude turns.
 
-Both skills return one integrated answer, not a transcript of the exchange.
+Both skills return one integrated answer by default. Add `--blind` to
+withhold the lead's answer in round 1, then compare and challenge the
+independent answers in round 2. Blind mode always uses two reviewer turns.
+
+For authorized code changes, check the final revised files after the last
+edit. If round 2 remains available, send the revised artifact and check
+results to the reviewer. Agreement alone does not verify the implementation.
+
+Runtime and wide-mode details live in each skill's `references/` directory.
+Release histories are preserved in separate `CHANGELOG.md` files.
 
 Both also offer `--wide` for open or broad questions: round 1 is blind, both
 models list the defensible answers independently, the lead merges them with
@@ -31,23 +40,21 @@ where the models weigh differently, not a single conclusion. `--steer` adds
 one pause after the merge in which the user steers round 2 (deepen, drop,
 add).
 
-## codex-duel 1.4.3 (runs in Claude Code)
+## codex-duel 1.5.0 (runs in Claude Code)
 
 ### Requirements
 
 - Claude Code.
-- The OpenAI Codex plugin for Claude Code. codex-duel calls the plugin's
-  `codex-companion.mjs`, found under
-  `~/.claude/plugins/cache/openai-codex/codex/*/scripts/`.
-- An authenticated Codex.
+- Node.js.
+- An installed, authenticated Codex CLI. The included helper calls
+  `codex exec` directly.
 
 ### Install
 
 Copy `claude-code/codex-duel` to `~/.claude/skills/codex-duel`.
 
-For optional `max` effort with Codex Companion 1.0.6, see the included
-[patch and installation instructions](claude-code/codex-duel/patches/README.md).
-Plugin updates can replace that local change.
+The companion plugin and its old `max` effort patch are no longer required.
+The patch remains in the repository for older releases.
 
 ### Usage
 
@@ -64,7 +71,8 @@ invoke it directly:
 | `--model` | `astra`, `sol`, `terra`, `luna` or the full ids `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
 | `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
 | `--fast` | no value | off |
-| `--wide` | no value | off |
+| `--blind` | no value | off |
+| `--wide` | no value; includes a blind first pass | off |
 | `--steer` | no value, requires `--wide` | off |
 
 The aliases select `gpt-6-astra`, `gpt-6.1-sol`, `gpt-5.6-terra` and
@@ -73,20 +81,19 @@ IDs are preserved.
 
 ### Notable behavior
 
-- Pre-flight checks use the saved job ID, status and worker PID. A quiet
-  log alone is not a reason to cancel a job.
-- Read-only by default. File edits happen only if the underlying request
-  explicitly asks for implementation or file changes.
-- `--fast` temporarily flips `service_tier` in `~/.codex/config.toml` to
-  `"fast"` and restores it afterward. The toggle command reads
-  `USERPROFILE`, so it works on Windows as written. On macOS or Linux,
-  replace `USERPROFILE` with `HOME`.
-- Maximum two Codex turns per duel.
-- Interactive sessions only. Under `claude -p` the session ends with the
-  turn, and the Codex plugin's SessionEnd hook then kills the duel's Codex
-  jobs.
+- The local helper runs in the background and resumes the exact saved session
+  ID, even when another task ran between rounds.
+- Read-only by default. File edits require authorization in the underlying task.
+- `--fast` requests fast processing for each invocation. Without it, the helper
+  requests the default tier. Saved configuration stays untouched on success,
+  failure and pauses.
+- The helper enforces two reviewer turns and one active worker per state file.
+- Model and effort are explicitly requested. The exec event stream does not
+  independently attest the serving model or effort.
+- Runtime checks use simulated CLI responses. No live model calls were made
+  for this release.
 
-## claude-duel 1.1.5 (runs in Codex)
+## claude-duel 1.2.0 (runs in Codex)
 
 ### Requirements
 
@@ -112,7 +119,8 @@ $claude-duel [flags] <question>
 | --- | --- | --- |
 | `--model` | `fable`, `fable-5.1`, `claude-fable-5-1`, or an explicitly requested full `claude-...` model ID | `claude-fable-5-1` |
 | `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
-| `--wide` | no value | off |
+| `--blind` | no value | off |
+| `--wide` | no value; includes a blind first pass | off |
 | `--steer` | no value, requires `--wide` | off |
 
 ### Notable behavior

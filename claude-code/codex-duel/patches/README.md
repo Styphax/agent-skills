@@ -1,5 +1,8 @@
 # Optional max effort for Codex Companion 1.0.6
 
+Historical patch for Codex Duel versions that use the companion plugin.
+Codex Duel 1.5.0 calls `codex exec` directly and does not require this patch.
+
 Codex Duel 1.4.0 accepts `--effort max`. The unmodified OpenAI Codex plugin
 1.0.6 rejects that value before it reaches Codex. This patch adds `max` to
 the plugin's accepted values, usage text and error message. The runtime
