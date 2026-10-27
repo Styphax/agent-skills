@@ -1,113 +1,87 @@
 ---
 name: vw-lease-rates
-description: Erfasse Volkswagen.de Gebrauchtwagen- und Junge-Gebrauchtwagen-Such-URLs, berechne echte VWFS PrivatLeasing-Raten ueber WebCalc, vergleiche Laufzeiten, Jahreskilometer, 0 EUR Sonderzahlung, Gesamtbetrag und korrigierte Fahrzeug-Deep-Links.
+description: Berechne aktuelle VWFS-Privatleasingraten für Volkswagen.de Gebrauchtwagen-Such-URLs, mit mehreren Laufzeiten, Jahreskilometern, Brutto-Sonderzahlung, Gesamtbetrag und Fahrzeuglinks.
+metadata:
+  version: "1.1.0"
 ---
 
 # VW Lease Rates
 
-## Einsatz
-
-Nutze diesen Skill fuer Volkswagen.de Pkw-Such-URLs wie:
+Für deutsche Volkswagen.de Pkw-Suchen nach Gebrauchtwagen und Jungen Gebrauchten, insbesondere:
 
 `https://www.volkswagen.de/de/modelle/verfuegbare-fahrzeuge-suche.html/__app/search/cars.app?...`
 
-Der Skill ist fuer deutsche VW Gebrauchtwagen/Junge Gebrauchtwagen gebaut. Er paginiert die VW-BFF-Suche, normalisiert Fahrzeugdaten und berechnet die PrivatLeasing-Rate pro Fahrzeug ueber VWFS WebCalc.
+Auch die normale Suchseiten-URL mit ableitbaren Query-Filtern wird akzeptiert. Die Suche beginnt bei Seite 1 und übernimmt wiederholte Filter, etwa mehrere Modelle. Privatkunden, Bruttopreise und Euro sind der Standard.
 
-Standardannahmen:
-
-- Privatkunden-Bruttopreise.
-- `36` Monate Laufzeit.
-- `10.000` km/Jahr.
-- `0` EUR Sonderzahlung.
-- Alle Treffer des exakten Filters, beginnend mit Seite 1.
-
-Wenn der Nutzer mehrere Laufzeiten oder einen Bereich nennt, nutze `--terms`, z.B. `--terms 24,30,36` oder `--terms 24-36`. VWFS bietet in diesem Bereich typischerweise 6-Monats-Schritte, also `24`, `30`, `36`.
-
-## Workflow
-
-1. Pruefe, ob die URL eine VW.de Such-URL oder ein daraus ableitbarer VW Fahrzeugfilter ist.
-2. Fuehre das Skript aus:
+## Ausführen
 
 ```powershell
-node "<skill>/scripts/vw_lease_rates.mjs" --url "<VW_SEARCH_URL>" --term 36 --mileage 10000 --down-payment 0 --out "."
+node "<skill>/scripts/vw_lease_rates.mjs" --url "<VW_SEARCH_URL>" --term 36 --mileage 10000 --down-payment 0 --out "<OUTPUT_DIR>"
 ```
 
 Mehrere Laufzeiten:
 
 ```powershell
-node "<skill>/scripts/vw_lease_rates.mjs" --url "<VW_SEARCH_URL>" --terms 24-36 --mileage 10000 --down-payment 0 --out "."
+node "<skill>/scripts/vw_lease_rates.mjs" --url "<VW_SEARCH_URL>" --terms 24-36 --mileage 10000 --down-payment 0 --out "<OUTPUT_DIR>"
 ```
 
-3. Lies die erzeugten Dateien:
+Benötigt Node 18+ mit globalem `fetch`; kein Browser erforderlich.
 
-- `vw-lease-rates.md` fuer die Vergleichstabelle.
-- `vw-lease-rates.json` fuer strukturierte Weiterverarbeitung.
+- `--url`: HTTPS-Such-URL von Volkswagen.de; Pflicht.
+- `--term`: Einzelne Laufzeit, Standard `36` Monate.
+- `--terms`: Liste wie `24,30,36` oder Bereich wie `24-36` in Sechsmonatsschritten. Die Berechenbarkeit hängt vom Fahrzeug ab. Der Bereichsendwert muss auf einem Schritt liegen.
+- `--mileage`: Jahreskilometer, Standard `10000`.
+- `--down-payment`: Brutto-Sonderzahlung, Standard `0` Euro. Ohne Tausendertrennzeichen, z. B. `1000.50` oder `1000,50`.
+- `--out`: Ausgabeordner; Standard aktueller Ordner.
+- `--page-size`: Treffer pro Seite, Standard `12`.
+- `--max-pages`: Optionales Testlimit; ein Teilbestand wird deutlich gekennzeichnet.
+- `--no-webcalc`: Nur Fahrzeugdaten und Kampagnen; **keine** berechneten Leasingraten.
+- `--webcalc-concurrency`: Gleichzeitig bearbeitete Fahrzeuge, Standard `4`.
+- `--prefix`: Dateipräfix ohne Pfadbestandteile, Standard `vw-lease-rates`.
+- `--timeout-ms`: Zeitlimit je HTTP-Versuch, Standard `30000`. Vorübergehende Netzwerk-/Serverfehler, HTTP 408/429 und Zeitüberschreitungen werden höchstens zweimal wiederholt.
 
-4. Antworte mit den wichtigsten Treffern und verweise auf die lokale Ergebnisdatei.
+Monate, Kilometer und Seitenparameter müssen positive ganze Zahlen sein. Unlesbare oder negative Sonderzahlungen und unbekannte Optionen werden abgelehnt.
 
-## Technische Kerndetails
+## Berechnung
 
-- Die VW-Suchergebnisse enthalten meist nur Finanzierungsraten oder Kampagnenlabels, nicht die Leasingrate.
-- Echte Leasingraten kommen aus `https://api.webcalc.vwfs.io/webcalc-frontend-service`.
-- WebCalc-Produkt fuer PrivatLeasing: `PL`.
-- Rechenrequest: `Request.@Name = "CalculateRate"`.
-- VTP-Domain: `VW.USEDCARS.VTP` mit `Dealer.ID` und `Vehicle.ID = car.key`.
-- Online-Angebote koennen auch ueber `VW.ONESHOP.ECOM.DE` berechnet werden.
-- Parameterwerte muessen als `#text` in `Product.Parameter` gesendet werden, nicht als `Value` oder `@Value`.
-- Korrekte VW-Fahrzeuglinks sind `.../__app/search/car/<car.key>.app?...`; `details.app?productId-app=...` landet nur auf der Suche oder ist unzuverlaessig.
+Die aktuelle VW-Seitenkonfiguration liefert die Suchschnittstelle. Echte Leasingraten kommen ausschließlich von `https://api.webcalc.vwfs.io/webcalc-frontend-service`, Produkt `PL`, Anfrage `CalculateRate`.
 
-## Ausgabe
+- Normaler Gebrauchtwagenweg: Domain `VW.USEDCARS.VTP`, mit `Dealer.ID` und `Vehicle.ID = car.key`.
+- Alternativer Herstellerweg für geeignete Fahrzeuge: `VW.ONESHOP.ECOM.DE`.
+- Vertragsparameter als `#text` in `Product.Parameter`, nicht als `Value` oder `@Value` senden.
+- Fahrzeugpreise bleiben centgenau. Die Monatsrate wird nur übernommen, wenn die Antwort Laufzeit, Jahreskilometer und Sonderzahlung bestätigt, entweder über strukturierte Parameter oder die konkreten Hersteller-Angebotstexte. Widersprüche oder fehlende Bestätigung ergeben einen Fehler.
 
-Bei einer einzelnen Laufzeit stehen die Hauptwerte in:
+Suchkarten können Finanzierungsraten enthalten. Diese dürfen weder bei WebCalc-Ausfällen noch bei `--no-webcalc` als Leasingrate erscheinen. Es gibt keinen solchen Ersatzwert.
 
-- `monthlyGross`
-- `totalGross`
-- `rateSource`
+## Ausgabe und Prüfung
 
-Bei mehreren Laufzeiten stehen die Werte in `termRates[]`:
+Das Skript schreibt `<prefix>.json` und `<prefix>.md`.
 
-- `termMonths`
-- `monthlyGross`
-- `totalGross`
-- `domain`
-- `source`
-- `error`
+Bei einer Laufzeit: `monthlyGross`, `totalGross`, `rateSource`. Bei mehreren Laufzeiten: `termRates[]` mit `termMonths`, `monthlyGross`, `totalGross`, `domain`, `source`, `confirmedParameters` und `error`. Die obersten Ratenfelder beziehen sich auf die ausgewählte Laufzeit; für Mehrfachvergleiche immer `termRates` verwenden.
 
-Der Gesamtbetrag ist:
+`totalGross = monthlyGross × termMonths + downPaymentGross`, centgenau. Weitere Händler-, Zulassungs-, Liefer- oder Servicekosten sind darin nicht automatisch enthalten.
 
-`monthlyGross * termMonths + downPaymentGross`
+- `meta.searchComplete`: Anzahl eindeutiger Fahrzeuge stimmt mit der angekündigten Gesamtzahl überein; der Bestand blieb während der Seitennavigation stabil.
+- `meta.resultNumber`, `meta.pagesFetched`, `meta.duplicatesRemoved`: Umfang und Seitennavigation.
+- `meta.webCalcRateCells`: Anzahl erfolgreicher, bestätigter Fahrzeug-/Laufzeitkombinationen.
+- `meta.webCalcRequests`: Anzahl bearbeiteter Fahrzeug-/Laufzeitkombinationen, nicht die Anzahl aller HTTP-Versuche einschließlich Alternativdomain und Wiederholungen.
+- `complete`: Vollständige Suche und alle angefragten Raten berechnet. Bei bewusstem `--no-webcalc` bezieht es sich nur auf die Suche.
+- `warnings`: Unvollständigkeit, geänderter Bestand, entfernte Duplikate oder fehlende Raten.
 
-Bei `0` EUR Sonderzahlung ist das einfach Monatsrate mal Laufzeit.
+Prozessstatus: `0` vollständig, `2` Teilbestand oder fehlende Raten, `1` ungültige Eingabe oder fataler Abruf-/Schemafehler. Bei Status `2` bleiben verfügbare Ergebnisse gespeichert. Ein vollständiger leerer Bestand kann Status `0` haben; die Ausgabe nennt null Fahrzeuge.
 
-## Grenzen
+Prüfe vor der Antwort die Vollständigkeit, die eindeutige Trefferzahl, `webCalcRateCells` und die Fehler in `termRates`. Keine Raten erfinden oder interpolieren. Fehlerwerte bleiben in JSON `null` und in Markdown `n/a`. Ein VWFS-Fehler wie `Cannot read properties of undefined (reading 'Slope')` bedeutet, dass der Dienst die betreffende Kombination nicht berechnen konnte; er beweist für sich allein keine dauerhafte Nichtverfügbarkeit der Laufzeit.
 
-Erfinde oder interpoliere keine Rate. Wenn VWFS fuer einzelne Fahrzeuge oder Laufzeiten Fehler liefert, lasse diese Werte als `n/a` stehen und nenne den Fehler knapp. Ein typischer VWFS-Fehler ist:
+Antworte in der Sprache des Nutzers. Nenne Monatsrate und Gesamtbetrag je gewünschter Laufzeit, Kilometer, Brutto-Sonderzahlung und Privatkundentyp. Zeige außerdem Fahrzeugtitel, Kaufpreis, Kilometerstand, Erstzulassung, Reichweite, DC-Ladezeit, Kampagne und Händler, soweit vorhanden. Nenne erfolgreiche und fehlende Berechnungen sowie jeden Teilabruf.
 
-`Cannot read properties of undefined (reading 'Slope')`
+Fahrzeuglinks werden als `.../__app/search/car/<URL-kodierter car.key>.app` aufgebaut, auch wenn der Eingabelink nur die Basissuchseite enthält. Linke die generierten Ergebnisdateien aus dem jeweiligen Arbeitsauftrag.
 
-Das bedeutet: VWFS kann diese Laufzeit fuer dieses Fahrzeug nicht berechnen, obwohl andere Laufzeiten desselben Fahrzeugs funktionieren koennen.
+Öffentlich geladene Dienstschlüssel bleiben im Arbeitsspeicher und werden aus Fehlerprotokollen entfernt.
 
-## Parameter
+## Lokale Regressionstests
 
-- `--url`: Pflicht, VW Such-URL.
-- `--term`: Einzelne Laufzeit in Monaten, Default `36`.
-- `--terms`: Laufzeitenliste oder Bereich, z.B. `24,30,36` oder `24-36`.
-- `--mileage`: Jahreskilometer, Default `10000`.
-- `--down-payment`: Sonderzahlung in EUR, Default `0`.
-- `--out`: Ausgabeordner, Default aktueller Ordner.
-- `--page-size`: Treffer pro Seite, Default `12`.
-- `--max-pages`: Optionaler Deckel fuer Tests.
-- `--no-webcalc`: Nur Suchdaten/Kampagnen extrahieren, keine VWFS-Raten berechnen.
-- `--webcalc-concurrency`: Parallelitaet fuer WebCalc, Default `4`.
-- `--prefix`: Dateipraefix, Default `vw-lease-rates`.
+```powershell
+node --test "<skill>/tests/lease-rates.test.mjs"
+```
 
-## Antwortprioritaeten
-
-Bevorzuge:
-
-- Monatsrate und Gesamtbetrag je gewuenschter Laufzeit.
-- Fahrzeugtitel, Preis, km, Erstzulassung, Reichweite, 10-80% DC-Ladezeit.
-- Leasingkampagne.
-- Haendler.
-- Korrigierten VW-Deep-Link.
-- Anzahl erfolgreicher WebCalc-Zellen und `n/a`-Faelle.
+Die Tests decken Filterweitergabe, Seitennavigation, Duplikate, Centgenauigkeit, Fahrzeuglinks, Vertragsbestätigung, WebCalc-Ausfälle, mehrere Laufzeiten, Eingaben, Zeitlimits und bereinigte Fehlermeldungen ab. Liveprüfungen mit aktuellen Herstellerdaten separat ausführen und Seitenlimits offenlegen.

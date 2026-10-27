@@ -133,7 +133,7 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## bmw-lease-rates (runs in Claude Code and Codex)
+## bmw-lease-rates 1.3.0 (runs in Claude Code and Codex)
 
 Calculates current BMW.de used-car lease rates for every vehicle in a
 filtered results URL, for a given term, annual mileage and down payment.
@@ -158,7 +158,9 @@ The script also runs on its own:
 node shared/bmw-lease-rates/scripts/bmw_lease_rates.mjs --url "<BMW_RESULTS_URL>" --term 36 --mileage 10000 --down-payment 0 --out .
 ```
 
-## vw-lease-rates (runs in Codex)
+Offline regression tests with mocked responses: `node --test shared/bmw-lease-rates/tests/lease-rates.test.mjs`.
+
+## vw-lease-rates 1.1.0 (runs in Codex)
 
 Calculates real VWFS private lease rates (PrivatLeasing) through VWFS
 WebCalc for every vehicle in a Volkswagen.de used-car search URL. Several
@@ -181,6 +183,8 @@ also runs on its own:
 ```
 node codex/vw-lease-rates/scripts/vw_lease_rates.mjs --url "<VW_SEARCH_URL>" --terms 24-36 --mileage 10000 --down-payment 0 --out .
 ```
+
+Offline regression tests with mocked responses: `node --test codex/vw-lease-rates/tests/lease-rates.test.mjs`.
 
 ## openrouter-agent 1.1.1 (runs in Codex on Windows)
 

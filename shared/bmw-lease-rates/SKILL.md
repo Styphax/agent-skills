@@ -1,66 +1,88 @@
 ---
 name: bmw-lease-rates
-description: Calculate current BMW.de used-car leasing rates for every vehicle in a filtered results URL and produce a Markdown and JSON comparison. Use when the user provides a BMW.de Gebrauchtwagen results URL and asks for monthly lease rates, a rate comparison, a specific term, annual mileage, down payment, or private gross rates.
+description: Calculate current BMW.de used-car leasing rates for vehicles in a filtered results URL and produce a Markdown and JSON comparison. Use for BMW.de Gebrauchtwagen lease-rate comparisons with a requested term, annual mileage, down payment, and private gross prices.
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # BMW Lease Rates
 
-## Workflow
+Berechne die BMWFS-Leasingrate aus den aktuellen Herstellerdaten. Kartenraten sind keine Ersatzquelle, da ihre Vertragsparameter abweichen können.
 
-Use the bundled script. Do not use installments shown on result cards as the final rates because those can use different default finance parameters.
-
-The script:
-
-1. Fetches the public BMW.de used-car page once over plain HTTPS and extracts BMW's current stocklocator API key from the server-rendered page config. No browser is involved.
-2. Runs the live search with the filters decoded from the supplied results URL, paginating until all results are loaded.
-3. Opens BMW finance data for every returned vehicle.
-4. Recalculates every eligible lease with the requested term, annual mileage, and down payment.
-5. Writes all valid quote rows to JSON and private-customer gross rates to the Markdown comparison.
-
-The API key rotates and is served publicly inside the page config; the script fetches it fresh on every run, keeps it in memory only, and must never print or persist it. Filter keys in the URL that the script does not map are reported as a stderr warning — if one appears, compare `fetchedHits` against the result count BMW.de shows for the same URL before trusting the output.
-
-## Run
+## Ausführen
 
 ```powershell
-node "<skill>/scripts/bmw_lease_rates.mjs" --url "<BMW_RESULTS_URL>" --term 36 --mileage 10000 --down-payment 0 --out "."
+node "<skill>/scripts/bmw_lease_rates.mjs" --url "<BMW_RESULTS_URL>" --term 36 --mileage 10000 --down-payment 0 --out "<OUTPUT_DIR>"
 ```
 
-Requires Node 18+ (global `fetch`). No browser, Playwright, or Chrome dependency.
+Benötigt Node 18+ mit globalem `fetch`. Browser oder Playwright sind nicht erforderlich.
 
-Options:
+- `--url`: HTTPS-Such-URL unter BMW.de `/de-de/sl/gebrauchtwagen` oder `/results`.
+- `--term`: Monate, Standard `36`; positive ganze Zahl. Die Verfügbarkeit wird pro Produkt geprüft.
+- `--mileage`: Kilometer pro Jahr, Standard `10000`; positive ganze Zahl.
+- `--down-payment`: **Brutto**-Sonderzahlung in Euro, Standard `0`. Ohne Tausendertrennzeichen, z. B. `1000.50` oder `1000,50`. Netto wird von BMW zurückgegeben und darf davon abweichen.
+- `--out`: Ausgabeordner, Standard aktueller Ordner.
+- `--page-size`: Treffer pro Seite, Standard `12`.
+- `--max-pages`: Optionales Seitenlimit für Tests. Ein begrenzter Bestand wird ausdrücklich als unvollständig ausgewiesen.
+- `--timeout-ms`: Zeitlimit je HTTP-Versuch, Standard `30000`. Netzwerkfehler, Zeitüberschreitungen, HTTP 408/429 und Serverfehler werden höchstens zweimal wiederholt.
 
-- `--url`: Filtered BMW.de Gebrauchtwagen results URL. Required.
-- `--term`: Contract term in months. Default `36`.
-- `--mileage`: Annual mileage. Default `10000`.
-- `--down-payment`: Gross and net down payment in euros. Default `0`.
-- `--out`: Output directory. Default current directory.
+Unbekannte Optionen und ungültige Zahlen werden vor dem Abruf abgelehnt.
 
-Outputs:
+## Suchumfang und Filter
 
-- `bmw-lease-rates.json`: Metadata, failures, and every valid private or business quote returned by BMW.
-- `bmw-lease-rates.md`: Private-customer gross rates, one row per vehicle, sorted from cheapest to most expensive.
+Das Skript übernimmt diese URL-Filter:
 
-## Verification
+- `MARKETING_MODEL_RANGE`, `COLOR`, `PAINT_TYPE`, `EQUIPMENT_GROUPS`.
+- `PERFORMANCE`: Unter- und Obergrenze; die dritte Angabe bedeutet `true` für kW und `false` für PS. Ohne dritte Angabe gilt BMWs PS-Standard.
+- `USED_CAR_MILEAGE`: Unter- und Obergrenze des Kilometerstands.
+- `PRODUCT_CATEGORY_TYPE`: Nur `["LEASE"]`. Ohne Angabe wird auf Leasing begrenzt.
+- `IS_INSTALLMENT`: Der boolesche URL-Wert bleibt erhalten; Standard `true`.
 
-Before reporting the result:
+Andere Filter, etwa Kaufpreis, Erstzulassung oder Händlerfilter, werden **nicht stillschweigend entfernt**. Das Skript bricht mit einer konkreten Fehlermeldung ab. Den Link dann nicht eigenmächtig vereinfachen oder die Suche erweitern. Zusätzliche unbekannte URL-Parameter und mehrfach gesetzte Steuerparameter werden ebenfalls abgelehnt. `sorting`, `page` und übliche Trackingparameter dürfen vorhanden sein; die fertige Tabelle wird unabhängig von der ursprünglichen Sortierung nach der neu berechneten Rate sortiert.
 
-- Check that `fetchedHits` equals the expected number of BMW search results.
-- Check that `failures` is empty or disclose every failure.
-- Check that the private Markdown table contains one distinct row per vehicle.
-- Check that term, annual mileage, and both down-payment values exactly match the request.
-- Do not fall back to visible card rates if the live search or finance flow fails.
+BMWs öffentlich ausgelieferter, rotierender Stocklocator-Schlüssel wird frisch aus der Herstellerseite geladen. Er bleibt ausschließlich im Arbeitsspeicher und darf weder ausgegeben noch gespeichert werden.
 
-## Response Rules
+## Ausgabe und Fehlerstatus
 
-Answer in the user's language. For a German request, state the exact term, annual mileage, down payment, customer type, and that the rates are gross.
+- `bmw-lease-rates.json`: Quell-URL, Erstellungszeit, Zielparameter, erwartete/eindeutige Trefferzahl, Vollständigkeit, Warnungen, Fehler, alle gültigen Privat-/Gewerbeangebote und ein Ergebnisstatus pro Fahrzeug.
+- `bmw-lease-rates.md`: Private Bruttoraten, günstigste gültige Privatrate pro Fahrzeug, aufsteigend nach der neu berechneten Monatsrate. Einschließlich Modell, Kaufpreis und Händlername, soweit vorhanden; sonst Händlernummer und Ort.
 
-Paste the compact table when practical. If it is long, show the leading results and link the generated Markdown file.
+Wichtige JSON-Felder:
 
-Say that the BMW finance calculation was run for every search result. Do not claim that every visible page was clicked manually.
+- `searchComplete`: Eindeutige Suchtreffer stimmen mit BMWs Gesamtzahl überein und die Gesamtzahl blieb während der Seitennavigation stabil.
+- `complete`: Zusätzlich liegt für jedes Fahrzeug eine gültige Privatrate vor und `failures` ist leer.
+- `expectedHits`, `fetchedHits`, `pagesFetched`, `duplicatesRemoved`.
+- `rows`: Alle gültigen Angebotsberechnungen; `privateQuotes`: eindeutige, sortierte Privatangebote für die Tabelle.
+- `vehicleResults[]`: `ok`, `partial` oder `unavailable`, Anzahl gültiger Privatprodukte und konkrete Probleme.
+- `failures[]`: Auch nicht verfügbare Parameter, abweichende Antwortparameter, fehlende Beträge und einzelne Produktfehler werden hier erfasst. Ein Produktfehler verhindert die Berechnung anderer Produkte desselben Fahrzeugs nicht.
+
+Prozessstatus: `0` vollständig, `2` unvollständige Suche oder fehlende/fehlerhafte Berechnungen, `1` ungültige Eingabe oder fataler Abruf-/Schemafehler. Bei Status `2` werden die verfügbaren Ergebnisse samt Gründen gespeichert. Eine vollständige leere Suche kann Status `0` haben; sie enthält einen Hinweis auf null Fahrzeuge.
+
+Fehlende Kaufpreise erscheinen als `n/a`, niemals als null Euro. Fehlende oder ungültige Raten werden nicht als gültiges Angebot ausgegeben. Laufzeit, Kilometerleistung und Brutto-Sonderzahlung jeder Berechnung müssen zum Auftrag passen; Netto- und Brutto-Sonderzahlung werden nicht gleichgesetzt.
+
+## Vor der Antwort prüfen
+
+Prüfe `searchComplete`, `complete`, `expectedHits`, `fetchedHits`, `failures` und `vehicleResults`. Nenne jeden verbleibenden Ausfall oder Teilabruf. Verwende bei Privatvergleichen `privateQuotes`, nicht die gemischte Liste `rows`.
+
+Antworte in der Sprache des Nutzers. Nenne Laufzeit, Jahreskilometer, Brutto-Sonderzahlung, Privatkundentyp und Bruttoraten. Der Gesamtbetrag stammt aus der BMWFS-Rechnung; weitere Zulassungs- oder Händlerkosten können hinzukommen. Sage nur für tatsächlich geprüfte Fahrzeuge, dass die Finanzberechnung ausgeführt wurde. Unverfügbare Parameter sind keine erfolgreiche Berechnung. Behaupte keine manuellen Seitenklicks.
+
+## Lokale Regressionstests
+
+```powershell
+node --test "<skill>/tests/lease-rates.test.mjs"
+```
+
+Die Tests verwenden kontrollierte Antworten und prüfen unter anderem aktuelle Datenfelder, Filtergrenzen und Einheiten, Teilabrufe, Duplikate, Vertragsparameter, fehlende Raten, Produktfehler, Sortierung, Zeitlimits und Schlüsselbereinigung. Ein Live-Test muss separat mit aktuellen Herstellerdaten erfolgen; `--max-pages` begrenzt die Stichprobe und kennzeichnet sie als Teilbestand.
 
 ## CHANGELOG
+
+### 1.3.0 - 2026-10-19
+
+- Aktuelle Fahrzeugfelder, Brutto-Sonderzahlung und korrekte Netto-Rückgabe.
+- Vollständige Leistungs-/Kilometerbereiche; nicht unterstützte Filter werden abgelehnt.
+- Explizite Ergebnisstatus, Prüfung von Beträgen und Antwortparametern, Fehlerisolation je Produkt.
+- Eindeutige Privattabelle, Sortierung nach Neuberechnung und kontrollierte Seitennavigation.
+- Eingabeprüfung, Zeitlimits, begrenzte Wiederholungen und lokale Regressionstests.
 
 ### 1.2.0 - 2026-08-15
 

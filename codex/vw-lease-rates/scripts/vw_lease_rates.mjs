@@ -2,12 +2,14 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const DEFAULT_BFF_BASE = "https://v3-115-2.gsl.feature-app.io";
 const DEFAULT_PAGE_SIZE = 12;
 const DEFAULT_PREFIX = "vw-lease-rates";
 const DEFAULT_WEBCALC_CONCURRENCY = 4;
 const DEFAULT_WEBCALC_ENDPOINT = "https://api.webcalc.vwfs.io/webcalc-frontend-service";
+let timeoutMs = 30000;
+const sensitiveValues = new Set();
 
 const USAGE = `
 Usage:
@@ -26,7 +28,10 @@ Options:
   --webcalc-concurrency <n>
                            Parallel WebCalc requests. Default: 4.
   --prefix <name>         Output file prefix. Default: vw-lease-rates.
+  --timeout-ms <n>        Timeout per HTTP attempt. Default: 30000; 2 retries.
   --help                  Show this help.
+
+Exit codes: 0 complete; 2 partial search or unavailable quotes; 1 fatal error.
 `;
 
 function parseArgs(argv) {
@@ -41,6 +46,7 @@ function parseArgs(argv) {
     url: null,
     useWebCalc: true,
     webCalcConcurrency: DEFAULT_WEBCALC_CONCURRENCY,
+    timeoutMs: 30000,
   };
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -74,7 +80,7 @@ function parseArgs(argv) {
         args.mileage = toPositiveInteger(value, "mileage");
         break;
       case "--down-payment":
-        args.downPayment = parseAmount(value);
+        args.downPayment = parseMoney(value);
         break;
       case "--out":
         args.out = value;
@@ -86,7 +92,11 @@ function parseArgs(argv) {
         args.maxPages = toPositiveInteger(value, "max-pages");
         break;
       case "--prefix":
+        if (!/^[\w-]+$/.test(value)) throw new Error("prefix must be a filename without path separators");
         args.prefix = value;
+        break;
+      case "--timeout-ms":
+        args.timeoutMs = toPositiveInteger(value, "timeout-ms");
         break;
       case "--webcalc-concurrency":
         args.webCalcConcurrency = toPositiveInteger(value, "webcalc-concurrency");
@@ -101,26 +111,47 @@ function parseArgs(argv) {
   }
   args.terms = args.terms || [args.term];
   args.term = args.terms.includes(args.term) ? args.term : args.terms.at(-1);
+  if (!args.help) validateUrl(args.url);
 
   return args;
 }
 
 function toPositiveInteger(value, name) {
-  const parsed = Number.parseInt(String(value), 10);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
+  const parsed = Number(value);
+  if (!/^[1-9]\d*$/.test(String(value)) || !Number.isSafeInteger(parsed)) {
     throw new Error(`${name} must be a positive integer`);
   }
   return parsed;
 }
 
+function parseMoney(value) {
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(String(value))) throw new Error("down-payment must be a nonnegative EUR amount without thousands separators");
+  const amount = Number(String(value).replace(',', '.'));
+  if (!Number.isFinite(amount) || !Number.isSafeInteger(Math.round(amount * 100))) throw new Error("Invalid down-payment");
+  return amount;
+}
+
+function validateUrl(raw) {
+  const url = new URL(raw);
+  if (url.protocol !== 'https:' || !['www.volkswagen.de', 'volkswagen.de'].includes(url.hostname) || url.username || url.password || url.port ||
+      !/\/verfuegbare-fahrzeuge-suche\.html(?:\/.*)?$/.test(url.pathname) || url.hash) throw new Error('Expected an HTTPS Volkswagen.de vehicle search URL');
+  return url;
+}
+
 function parseAmount(value) {
   if (value == null || value === "") return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  const normalized = String(value)
-    .replace(/[^\d,.-]/g, "")
-    .replace(/\.(?=\d{3}(\D|$))/g, "")
-    .replace(",", ".");
-  const parsed = Number.parseFloat(normalized);
+  let normalized = String(value).trim().replace(/(?:EUR|€)/gi, '').replace(/[\s\u00a0]/g, '');
+  if (!/^-?\d[\d.,]*$/.test(normalized)) return null;
+  if (normalized.includes(',') && normalized.includes('.')) {
+    if (/^-?\d{1,3}(?:\.\d{3})*,\d{1,2}$/.test(normalized)) normalized = normalized.replaceAll('.', '').replace(',', '.');
+    else if (/^-?\d{1,3}(?:,\d{3})*\.\d{1,2}$/.test(normalized)) normalized = normalized.replaceAll(',', '');
+    else return null;
+  } else if (/^-?\d{1,3}(?:\.\d{3})+$/.test(normalized)) normalized = normalized.replaceAll('.', '');
+  else if (/^-?\d{1,3}(?:,\d{3})+$/.test(normalized)) normalized = normalized.replaceAll(',', '');
+  else if (/^-?\d+(?:[.,]\d{1,2})?$/.test(normalized)) normalized = normalized.replace(',', '.');
+  else return null;
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
@@ -135,7 +166,7 @@ function parseTerms(value) {
   if (range) {
     const start = toPositiveInteger(range[1], "terms range start");
     const end = toPositiveInteger(range[2], "terms range end");
-    if (end < start) throw new Error("terms range end must be greater than range start");
+    if (end < start || (end - start) % 6 !== 0 || end - start > 600) throw new Error("terms range must end on a 6-month step and span at most 600 months");
     const out = [];
     for (let term = start; term <= end; term += 6) out.push(term);
     return out;
@@ -144,75 +175,51 @@ function parseTerms(value) {
   const terms = raw
     .split(",")
     .map((part) => part.trim())
-    .filter(Boolean)
     .map((part) => toPositiveInteger(part, "terms"));
   if (terms.length === 0) throw new Error("--terms must include at least one term");
   return [...new Set(terms)].sort((a, b) => a - b);
 }
 
-async function fetchText(url) {
-  const response = await fetch(url, {
-    headers: {
-      accept: "text/html,application/json;q=0.9,*/*;q=0.8",
-      "accept-language": "de-DE,de;q=0.9,en;q=0.7",
-      "user-agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
-    },
-  });
-
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`GET ${url} failed with ${response.status}: ${text.slice(0, 500)}`);
-  }
+function safeError(value) {
+  let text = String(value).replace(/([?&](?:oneapiKey|apiKey)=)[^&\s]*/gi, '$1[redacted]');
+  for (const secret of sensitiveValues) text = text.replaceAll(secret, '[redacted]');
   return text;
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
-      "accept-language": "de-DE,de;q=0.9,en;q=0.7",
-      "user-agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
-    },
-  });
-
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`GET ${url} failed with ${response.status}: ${text.slice(0, 500)}`);
+async function fetchText(url, options = {}, retries = 2) {
+  let lastError;
+  const target = new URL(url);
+  for (const name of ['oneapiKey', 'apiKey']) if (target.searchParams.get(name)) sensitiveValues.add(target.searchParams.get(name));
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs), headers: {
+        accept: 'application/json,text/html;q=0.9,*/*;q=0.8', 'accept-language': 'de-DE,de;q=0.9,en;q=0.7',
+        'user-agent': 'Mozilla/5.0 Chrome/145 Safari/537.36', ...options.headers,
+      } });
+      const text = await response.text();
+      if (!response.ok) {
+        const error = new Error(`${options.method || 'GET'} ${target.origin}${target.pathname} failed with ${response.status}: ${safeError(text).slice(0,500)}`);
+        error.retryable = [408,429].includes(response.status) || response.status >= 500;
+        throw error;
+      }
+      return text;
+    } catch (error) {
+      lastError = new Error(safeError(error.message));
+      if (error.retryable === false) break;
+      if (attempt < retries) await new Promise(resolve => setTimeout(resolve, 400 * (attempt + 1)));
+    }
   }
+  throw lastError;
+}
 
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`Invalid JSON from ${url}: ${error.message}`);
-  }
+async function fetchJson(url, options) {
+  const text = await fetchText(url, options);
+  try { return JSON.parse(text); }
+  catch { throw new Error(`Invalid JSON at ${new URL(url).pathname}`); }
 }
 
 async function postJson(url, body) {
-  const response = await fetch(url, {
-    body: JSON.stringify(body),
-    headers: {
-      accept: "application/json",
-      "accept-language": "de-DE,de;q=0.9,en;q=0.7",
-      "content-type": "application/json",
-      referer: "https://www.volkswagen.de/",
-      "user-agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
-    },
-    method: "POST",
-  });
-
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(`POST ${url} failed with ${response.status}: ${text.slice(0, 500)}`);
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`Invalid JSON from ${url}: ${error.message}`);
-  }
+  return fetchJson(url, { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json', referer: 'https://www.volkswagen.de/' } });
 }
 
 function parseInstanceConfig(html) {
@@ -256,7 +263,8 @@ async function resolveRuntimeConfig(searchUrl) {
     throw lastError || new Error("Could not fetch Volkswagen global config");
   }
 
-  const baseUrl = instanceConfig.baseUrl || parseFeatureAppBaseUrl(html) || DEFAULT_BFF_BASE;
+  const baseUrl = instanceConfig.baseUrl || parseFeatureAppBaseUrl(html);
+  if (!baseUrl) throw new Error('Volkswagen page did not include the current search service URL');
   const spaConfig = globalConfig.spaAsyncConfig || {};
   const oneApiKey = spaConfig.oneApiConfiguration?.apiKey;
   const endpoint = spaConfig.serviceConfigEndpoint?.endpoint;
@@ -264,6 +272,7 @@ async function resolveRuntimeConfig(searchUrl) {
   if (!oneApiKey || !endpoint) {
     throw new Error("Volkswagen global config did not include oneApiKey and service endpoint");
   }
+  sensitiveValues.add(oneApiKey);
 
   return {
     baseUrl,
@@ -299,6 +308,8 @@ async function fetchAllCars(searchUrl, runtimeConfig, args) {
   const pageMetas = [];
   let page = 1;
   let pageMax = 1;
+  const seen = new Set(), warnings = [];
+  let expected = null, rawCars = 0, changedCount = false;
 
   while (true) {
     const bffUrl = new URL("/bff/car/search", runtimeConfig.baseUrl);
@@ -309,20 +320,36 @@ async function fetchAllCars(searchUrl, runtimeConfig, args) {
       throw new Error(`Volkswagen BFF response for page ${page} did not include cars[]`);
     }
 
-    allCars.push(...data.cars);
+    const count = Number(data.meta?.resultNumber);
+    const max = Number(data.meta?.pageMax);
+    if (data.meta?.resultNumber == null || !Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(max) || max < 0 || (count > 0 && max < 1)) throw new Error('VW search response has invalid resultNumber/pageMax');
+    if (expected != null && expected !== count) changedCount = true;
+    expected ??= count;
+    const before = allCars.length;
+    for (const car of data.cars) {
+      if (!car.key) throw new Error('VW search result has no vehicle key');
+      if (!seen.has(car.key)) { seen.add(car.key); allCars.push(car); }
+    }
+    rawCars += data.cars.length;
     pageMetas.push(data.meta || {});
-    pageMax = Number.parseInt(data.meta?.pageMax ?? "1", 10) || 1;
+    pageMax = max;
 
     const hitMaxPages = args.maxPages != null && page >= args.maxPages;
-    if (page >= pageMax || hitMaxPages) break;
+    if (page >= pageMax || hitMaxPages || !data.cars.length || allCars.length === before) break;
     page += 1;
   }
 
+  const duplicatesRemoved = rawCars - allCars.length;
+  const complete = allCars.length === expected && !changedCount;
+  if (duplicatesRemoved) warnings.push(`Removed ${duplicatesRemoved} duplicate VW search hits`);
+  if (changedCount) warnings.push('VW result count changed during pagination; repeat the search');
+  if (!complete) warnings.push(`Incomplete VW search: ${allCars.length} distinct vehicles of ${expected}; pages=${pageMetas.length}${args.maxPages ? ', max-pages=' + args.maxPages : ''}`);
   return {
     cars: allCars,
     meta: pageMetas.at(-1) || {},
     pageMetas,
     pagesFetched: pageMetas.length,
+    complete, warnings, duplicatesRemoved, expected,
   };
 }
 
@@ -350,7 +377,10 @@ function asDateOnly(value) {
 function detailUrl(car, searchUrl) {
   if (car.key && searchUrl) {
     const url = new URL(searchUrl.href);
-    url.pathname = url.pathname.replace(/\/__app\/search\/[^/]+\.app$/, `/__app/search/car/${encodeURIComponent(car.key)}.app`);
+    const base = url.pathname.split('/__app/')[0].replace(/\/$/, '');
+    url.pathname = `${base}/__app/search/car/${encodeURIComponent(car.key)}.app`;
+    url.searchParams.delete('pageIndex-app');
+    url.searchParams.delete('page-app');
     return url.href;
   }
   if (car.oneShopLink) return car.oneShopLink;
@@ -366,76 +396,6 @@ function structuredCampaigns(car, type) {
       label: campaign.ui?.label || campaign.ui?.filterText || null,
       start: campaign.start || null,
     }));
-}
-
-function extractStructuredRate(car) {
-  const roots = [
-    ["prices", car.prices],
-    ["leasing", car.leasing],
-    ["finance", car.finance],
-    ["financing", car.financing],
-    ["rateData", car.rateData],
-    ["payment", car.payment],
-    ["offer", car.offer],
-  ].filter(([, value]) => value && typeof value === "object");
-
-  for (const [name, value] of roots) {
-    const found = scanForRate(value, [name], 0);
-    if (found) return found;
-  }
-  return null;
-}
-
-function scanForRate(value, pathParts, depth) {
-  if (depth > 8 || value == null) return null;
-  const pathName = pathParts.join(".");
-  const lastKey = pathParts.at(-1) || "";
-  const lowerPath = pathName.toLowerCase();
-  const lowerKey = lastKey.toLowerCase();
-
-  if (typeof value === "string" || typeof value === "number") {
-    if (looksLikeMonthlyRatePath(lowerPath, lowerKey)) {
-      const amount = parseAmount(value);
-      if (amount != null && amount >= 10 && amount <= 5000) {
-        return { amount, sourcePath: pathName };
-      }
-    }
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index += 1) {
-      const found = scanForRate(value[index], [...pathParts, String(index)], depth + 1);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  if (typeof value === "object") {
-    if (looksLikeMonthlyRatePath(lowerPath, lowerKey)) {
-      const amount = parseAmount(value.value ?? value.valueString ?? value.text ?? value.label);
-      if (amount != null && amount >= 10 && amount <= 5000) {
-        return { amount, sourcePath: pathName };
-      }
-    }
-
-    for (const [key, child] of Object.entries(value)) {
-      const found = scanForRate(child, [...pathParts, key], depth + 1);
-      if (found) return found;
-    }
-  }
-
-  return null;
-}
-
-function looksLikeMonthlyRatePath(lowerPath, lowerKey) {
-  if (/interest|zinssatz|apr|nominal|effektiv|percent|percentage/.test(lowerPath)) {
-    return false;
-  }
-  if (/monthly|month|rate|leasing|payment|installment|ratevalue|monthlypayments/.test(lowerKey)) {
-    return true;
-  }
-  return /monthly|leasingrate|monthlyrate|monthlypayments|payment\.rate|ratevalue/.test(lowerPath);
 }
 
 function dealerId(car) {
@@ -455,11 +415,11 @@ function modelCode(car) {
 }
 
 function grossPrice(car) {
-  return parseIntegerAmount(car.parsedPrice?.value ?? car.parsedPrice?.label);
+  return parseAmount(car.parsedPrice?.value ?? car.parsedPrice?.label);
 }
 
 function listPrice(car) {
-  return parseIntegerAmount(car.parsedPrice?.list?.value ?? car.parsedPrice?.list?.label);
+  return parseAmount(car.parsedPrice?.list?.value ?? car.parsedPrice?.list?.label);
 }
 
 function mileageKm(car) {
@@ -588,9 +548,41 @@ function webCalcError(response) {
   return root.Error?.Description || root.Error?.["@Code"] || null;
 }
 
+function verifyWebCalcParameters(response, args, term) {
+  const root = response.Response || response;
+  const evidence = { termMonths: [], annualMileage: [], downPaymentGross: [] };
+  const add = (key, value) => {
+    if (value != null) evidence[key].push(parseAmount(value));
+  };
+  const ids = { Duration: 'termMonths', Mileage: 'annualMileage', DownPayment: 'downPaymentGross' };
+  for (const product of firstArray(root.Product)) {
+    if (product?.['@ID'] && product['@ID'] !== 'PL') throw new Error('WebCalc returned a different finance product');
+    for (const p of firstArray(product?.Parameter)) {
+      if (ids[p?.['@ID']]) add(ids[p['@ID']], p['#text'] ?? p.Value?.['@Value'] ?? p.Value?.['#text'] ?? p['@Value']);
+    }
+  }
+  for (const p of firstArray(root.Payment)) if (p?.['@ID'] === 'DownPayment') add('downPaymentGross', p.Value?.['@Value'] ?? p.Value?.['#text']);
+  for (const name of ['CalculationDisclaimer', 'RateDetails']) {
+    const block = root.Disclaimers?.[name];
+    const text = typeof block === 'string' ? block : block?.['#cdata-section'] ?? block?.['#text'] ?? '';
+    const duration = text.match(/Laufzeit\s+(\d+)\s+Monate/i) ?? text.match(/(?:bei\s+)?(\d+)\s+Monaten?\s+Laufzeit/i);
+    const mileage = text.match(/Fahrleistung\s+([\d.]+)\s*km/i) ?? text.match(/([\d.]+)\s*km\s+j[aä]hrl/i);
+    const down = text.match(/Sonderzahlung\s+(?:von\s+)?([\d.,]+)\s*(?:EUR|€)/i);
+    if (duration) add('termMonths', duration[1]);
+    if (mileage) add('annualMileage', mileage[1]);
+    if (down) add('downPaymentGross', down[1]);
+  }
+  const requested = { termMonths: term, annualMileage: args.mileage, downPaymentGross: args.downPayment };
+  for (const [key, wanted] of Object.entries(requested)) {
+    if (!evidence[key].length) throw new Error(`WebCalc response does not confirm ${key}`);
+    if (evidence[key].some(value => value == null || Math.abs(value - wanted) > 0.005)) throw new Error(`WebCalc returned different ${key}; requested ${wanted}`);
+  }
+  return { ...requested, verified: true };
+}
+
 function totalGross(monthlyGross, termMonths, downPaymentGross) {
   if (monthlyGross == null || termMonths == null) return null;
-  return monthlyGross * termMonths + (downPaymentGross || 0);
+  return (Math.round(monthlyGross * 100) * termMonths + Math.round((downPaymentGross || 0) * 100)) / 100;
 }
 
 async function fetchWebCalcRate(car, args, term = args.term) {
@@ -603,8 +595,11 @@ async function fetchWebCalcRate(car, args, term = args.term) {
   for (const request of requests) {
     try {
       const response = await postJson(DEFAULT_WEBCALC_ENDPOINT, request);
+      const error = webCalcError(response);
+      if (error) throw new Error(error);
       const rate = extractWebCalcRate(response);
-      if (rate != null) {
+      if (rate != null && rate > 0) {
+        const confirmedParameters = verifyWebCalcParameters(response, args, term);
         return {
           domain: request.Request["@Domain"],
           error: null,
@@ -612,12 +607,12 @@ async function fetchWebCalcRate(car, args, term = args.term) {
           source: `webcalc.${request.Request["@Domain"]}.PL.CalculateRate`,
           termMonths: term,
           totalGross: totalGross(rate, term, args.downPayment),
+          confirmedParameters,
         };
       }
-      const error = webCalcError(response);
-      if (error) errors.push(`${request.Request["@Domain"]}: ${error}`);
+      errors.push(`${request.Request["@Domain"]}: WebCalc returned no positive Rate payment`);
     } catch (error) {
-      errors.push(`${request.Request["@Domain"]}: ${error.message}`);
+      errors.push(`${request.Request["@Domain"]}: ${safeError(error.message)}`);
     }
   }
 
@@ -656,13 +651,12 @@ function normalizeCar(car, index, args, searchUrl) {
   const range = batteryItem(car, "electric-range");
   const capacity = batteryItem(car, "battery-capacity");
   const charging = batteryItem(car, "battery-charging-dc-max-10-80");
-  const rate = extractStructuredRate(car);
   const leasingCampaigns = structuredCampaigns(car, "LEASING");
   const financingCampaigns = structuredCampaigns(car, "FINANCING");
 
   return {
     annualMileage: args.mileage,
-    batteryKwh: parseIntegerAmount(capacity?.raw_value ?? capacity?.text),
+    batteryKwh: parseAmount(capacity?.raw_value ?? capacity?.text),
     carType: valueOf(car.cartype),
     carid: car.carid || null,
     dcCharging10To80: charging?.text || null,
@@ -673,17 +667,18 @@ function normalizeCar(car, index, args, searchUrl) {
     downPaymentGross: args.downPayment,
     financingCampaigns,
     firstRegistration: asDateOnly(car.initialreg),
-    grossPrice: parseIntegerAmount(car.parsedPrice?.value ?? car.parsedPrice?.label),
+    grossPrice: grossPrice(car),
     isLeasing: Boolean(car.isLeasing),
     leasingCampaigns,
     mileageKm: parseIntegerAmount(car.mileage?.raw_value ?? car.mileage?.value),
-    monthlyGross: rate?.amount ?? null,
+    monthlyGross: null,
+    totalGross: null,
     paymentOptions: Array.isArray(car.paymentOptions) ? car.paymentOptions : [],
     powerKw: parseIntegerAmount(car.motor?.powerKw?.value),
     powerPs: parseIntegerAmount(car.motor?.powerPs?.value),
     rank: index + 1,
     rangeKm: parseIntegerAmount(range?.raw_value ?? range?.text),
-    rateSource: rate?.sourcePath ?? null,
+    rateSource: null,
     subtitle: valueOf(car.subtitle),
     termRates: [],
     termMonths: args.term,
@@ -722,9 +717,11 @@ function createMarkdown(result) {
   lines.push(`Quelle: ${result.sourceUrl}`);
   lines.push(`Erstellt: ${result.generatedAt}`);
   lines.push(`Treffer: ${result.rows.length}`);
+  lines.push(`Suchbestand: ${result.rows.length}/${result.meta.resultNumber}; vollständig: ${result.meta.searchComplete ? 'ja' : 'nein'}. Privatkunden, brutto.`);
   lines.push(
     `Annahmen: Laufzeiten ${terms.join(", ")} Monate, ${formatNumber(result.assumptions.annualMileage)} km/Jahr, ${formatEuro(result.assumptions.downPaymentGross)} Anzahlung`,
   );
+  lines.push('Gesamt = Monatsrate × Laufzeit + Sonderzahlung; zusätzliche Händlerkosten sind nicht enthalten.');
   if (result.warnings.length > 0) {
     lines.push("");
     lines.push("## Hinweise");
@@ -768,7 +765,7 @@ function createMarkdown(result) {
     lines.push(
       [
         row.rank,
-        formatEuro(row.grossPrice),
+        formatEuro(row.grossPrice, 2),
         escapeMd(row.title),
         formatNumber(row.mileageKm),
         row.firstRegistration || "",
@@ -786,17 +783,15 @@ function createMarkdown(result) {
   return `${lines.join("\n")}\n`;
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
+async function main(argv = process.argv.slice(2)) {
+  const args = parseArgs(argv);
   if (args.help) {
     process.stdout.write(USAGE);
     return;
   }
 
-  const searchUrl = new URL(args.url);
-  if (!/volkswagen\.de$/i.test(searchUrl.hostname) && searchUrl.hostname !== "www.volkswagen.de") {
-    throw new Error(`Expected a volkswagen.de URL, got ${searchUrl.hostname}`);
-  }
+  const searchUrl = validateUrl(args.url);
+  timeoutMs = args.timeoutMs;
 
   const runtimeConfig = await resolveRuntimeConfig(searchUrl);
   const fetched = await fetchAllCars(searchUrl, runtimeConfig, args);
@@ -811,6 +806,9 @@ async function main() {
       if (!selected || selected.monthlyGross == null) {
         return {
           ...row,
+          monthlyGross: null,
+          totalGross: null,
+          rateSource: null,
           termRates,
           webCalc: selected,
         };
@@ -826,17 +824,13 @@ async function main() {
     });
   }
 
-  const warnings = [];
+  const warnings = [...fetched.warnings];
 
   if (rows.length === 0) {
     warnings.push("Volkswagen returned no vehicles for this filter.");
   }
 
-  if (!rows.some((row) => row.monthlyGross != null)) {
-    warnings.push(
-      "VW liefert fuer diese Treffer in der Suchantwort keine strukturierte Monatsrate, nur Fahrzeugdaten und Kampagnen.",
-    );
-  }
+  if (!args.useWebCalc) warnings.push('WebCalc disabled: no leasing rates calculated.');
 
   const webCalcErrors = webCalcResults.flat().filter((item) => item?.error).length;
   if (args.useWebCalc && webCalcErrors > 0) {
@@ -844,17 +838,21 @@ async function main() {
   }
 
   const result = {
+    complete: fetched.complete && (!args.useWebCalc || webCalcErrors === 0),
     assumptions: {
       annualMileage: args.mileage,
       downPaymentGross: args.downPayment,
       termMonths: args.term,
       terms: args.terms,
+      customerType: 'PRIVATE', currency: 'EUR', gross: true,
     },
     generatedAt: new Date().toISOString(),
     meta: {
       pageMetas: fetched.pageMetas,
       pagesFetched: fetched.pagesFetched,
-      resultNumber: fetched.meta.resultNumber ?? rows.length,
+      resultNumber: fetched.expected,
+      searchComplete: fetched.complete,
+      duplicatesRemoved: fetched.duplicatesRemoved,
       webCalcRateCells: webCalcResults.flat().filter((item) => item?.monthlyGross != null).length,
       webCalcRequests: webCalcResults.flat().length,
     },
@@ -876,6 +874,8 @@ async function main() {
     `${JSON.stringify(
       {
         cars: rows.length,
+        complete: result.complete,
+        searchComplete: fetched.complete,
         json: jsonPath,
         markdown: markdownPath,
         pagesFetched: fetched.pagesFetched,
@@ -887,9 +887,14 @@ async function main() {
       2,
     )}\n`,
   );
+  if (!result.complete) process.exitCode = 2;
+  return result;
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.stack || error.message}\n`);
-  process.exitCode = 1;
-});
+export { parseArgs, parseMoney, parseAmount, parseTerms, validateUrl, buildSearchParams, fetchText, fetchJson,
+  fetchAllCars, resolveRuntimeConfig, detailUrl, normalizeCar, webCalcPayloads, extractWebCalcRate,
+  verifyWebCalcParameters, fetchWebCalcRate, fetchWebCalcTermRates, totalGross, createMarkdown, main };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(error => { process.stderr.write(`${safeError(error.message)}\n`); process.exitCode = 1; });
+}
