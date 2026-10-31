@@ -136,12 +136,14 @@ $claude-duel [flags] <question>
 
 ## council 1.0.0 (runs in Claude Code and Codex)
 
+Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
+[tstack](https://github.com/t3dotgg/tstack) repository
+([original SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
 Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
 Claude Opus 5.5 and Claude Fable 5.1 in parallel, then integrates their
-positions into one answer with origin tags. Adapted from the
-[T3 council skill](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md).
-Changes: four fixed members with their own runtime instructions instead of
-one flagship per provider, members always read-only, effort `xhigh`.
+positions into one answer with origin tags. Changes from the original: four
+fixed members with their own runtime instructions instead of one flagship
+per provider, members always read-only, effort `xhigh`.
 
 ### Requirements
 
@@ -317,4 +319,5 @@ Without an argument, the rules apply from the call to the end of the session.
 
 ## License
 
-MIT.
+MIT. `council` is adapted from Theo Browne's
+[tstack](https://github.com/t3dotgg/tstack), also MIT.

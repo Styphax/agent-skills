@@ -4,6 +4,7 @@ description: Put a question, decision, plan or review to a council of GPT-6 Astr
 allowed-tools: Bash(node:*)
 metadata:
   version: 1.0.0
+  source: https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md
 ---
 
 The lead puts the user's request to every member independently and in
