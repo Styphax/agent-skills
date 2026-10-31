@@ -45,10 +45,10 @@ substitute settings.
 4. Launch every member with the same handoff as described in
    [runtime](references/runtime.md) and wait for all. If a member fails,
    report it and never substitute; if every selected member of one
-   provider fails, stop and ask before integrating. Merge the answers into one map of
-   positions, each tagged with the members holding it, for example
-   `[Sol, Fable]` or `[all]`, with each side's reasons, then add the
-   lead's assessment.
+   provider fails, stop and ask before integrating. Merge the answers into
+   one map of positions, each tagged with the members holding it, for
+   example `[Sol, Fable]` or `[all]`, with each side's reasons, then add
+   the lead's assessment.
 
 ## Further rounds
 
