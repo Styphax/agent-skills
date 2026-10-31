@@ -1,6 +1,6 @@
 interface:
   display_name: "Council"
-  short_description: "Put a question to Astra, Sol, Opus and Fable"
-  default_prompt: "Use $council to put this request to GPT-6 Astra, GPT-6.1 Sol, Claude Opus 5.5 and Claude Fable 5.1 and deliver one integrated answer."
+  short_description: "Ask Astra, Sol, Opus, Fable and ChatGPT Pro"
+  default_prompt: "Use $council to put this request to GPT-6 Astra, GPT-6.1 Sol, Claude Opus 5.5, Claude Fable 5.1 and ChatGPT Pro and deliver one integrated answer."
 policy:
   allow_implicit_invocation: true

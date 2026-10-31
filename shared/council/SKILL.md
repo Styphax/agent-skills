@@ -1,9 +1,9 @@
 ---
 name: council
-description: Put a question, decision, plan or review to a council of GPT-6 Astra, GPT-6.1 Sol, Claude Opus 5.5 and Claude Fable 5.1, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
+description: Put a question, decision, plan or review to a council of GPT-6 Astra, GPT-6.1 Sol, Claude Opus 5.5, Claude Fable 5.1 and, in Codex, ChatGPT Pro, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
 allowed-tools: Bash(node:*)
 metadata:
-  version: 1.1.2
+  version: 1.2.0
   source: https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md
 ---
 
@@ -12,15 +12,16 @@ parallel, then judges from evidence. The lead is not a member. Do not
 average positions, manufacture disagreement or require consensus. Keep
 scope fixed: findings beyond the request are reported, not implemented.
 
-Flags before the request: `--members LIST` (subset of `astra,sol,opus,fable`),
-`--effort LEVEL` (`low`, `medium`, `high`, `xhigh`, `max`; one level for
-all or `member=LEVEL` pairs), `--no-web` (supplied material only; state it
-in the handoff). If members or effort are not given, offer the choice
-before starting, as an optional question with recommended defaults: all
-four members, `xhigh`. In Claude Code use AskUserQuestion with members as a
-multi-select of the four. In Codex use request_user_input, which is
-single-choice: "All four (Recommended)", "Astra and Fable", "Sol and Opus".
-Effort in both: "xhigh (Recommended)", "max", "high". The free-form answer
+Flags before the request: `--members LIST` (subset of `astra,sol,opus,fable`,
+plus `pro` in Codex), `--effort LEVEL` (`low`, `medium`, `high`, `xhigh`,
+`max`; one level for all or `member=LEVEL` pairs; Pro always runs at
+ChatGPT's Pro tier), `--no-web` (supplied material only; state it in the
+handoff). If members or effort are not given, offer the choice before
+starting, as an optional question with recommended defaults: every member
+the harness offers, `xhigh`. In Claude Code use AskUserQuestion with
+members as a multi-select of the four. In Codex use request_user_input,
+which is single-choice: "All five (Recommended)", "Four without Pro",
+"Astra, Fable and Pro". Effort in both: "xhigh (Recommended)", "max", "high". The free-form answer
 covers other choices. If no question tool is listed, ask in one plain-text
 line naming the defaults. If the tool returns no answer, use the defaults
 and say so. Without a request, use the latest substantive one. Preserve

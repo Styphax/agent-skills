@@ -2,8 +2,8 @@
 
 Requires Node.js. Astra and Sol need an authenticated Codex CLI. Opus and
 Fable run as native subagents in Claude Code (2.1.304+) and through an
-authenticated Claude Code CLI in Codex (2.1.257+ for Fable 5.1). Use one
-state file per member in the task workspace, start every member before
+authenticated Claude Code CLI in Codex (2.1.257+ for Fable 5.1). Pro runs
+only in Codex, through the Oracle CLI. Use one state file per member in the task workspace, start every member before
 waiting for any, and pass the same model, effort and `--no-web` in both
 rounds, from the same working directory.
 
@@ -43,11 +43,32 @@ for each call, wait with its continuation tool, and read the `.out` file
 after the process has exited. The member gets only Read, Glob, Grep and,
 unless `--no-web`, WebSearch and WebFetch, and runs in safe mode.
 
+## Pro, in Codex
+
+Pro is ChatGPT's Pro tier on the user's signed-in account, driven by the
+Oracle CLI (`@steipete/oracle` 0.22.2+, Node.js 24+, Chrome) in browser
+mode. On the first run, sign in to chatgpt.com in the Chrome window Oracle
+opens; the profile is kept. Pro sees only attached files, so attach the
+handoff and every file it names, and nothing else from `work/`.
+
+```text
+oracle --engine browser --browser-manual-login --model gpt-6-pro --slug "<council>-pro-r1" --wait --write-output "<work>/pro.round1.md" -p "Answer the attached council handoff." --file "<work>/handoff.md" --file "<material>"
+oracle --followup "<council>-pro-r1" --slug "<council>-pro-r2" --wait --write-output "<work>/pro.round2.md" -p "Answer the attached council follow-up." --file "<work>/round2.md" --file "<revised files>"
+```
+
+`gpt-6-pro` selects GPT-6 Astra at the Pro tier, and Oracle aborts when it
+cannot confirm Pro. A round takes 10 to 60 minutes. Start it like the
+Claude helper and read the output file after exit. Each later round
+follows up on the previous round's slug, which reopens the same ChatGPT
+conversation. If the CLI exits early, reattach with `oracle session <slug>`;
+never re-run it. `--no-web` is a handoff rule here.
+
 ## Failures
 
 Both helpers enforce exact-session resume and unchanged settings; rounds
 are unlimited. On failure, keep the state and logs, do not resume or
 retry, and report that member as failed. Effort is requested, not measured.
 The Claude helper checks the model on every assistant message; the Codex
-event stream does not attest it. On explicit interruption, use the Codex
+event stream does not attest it; Oracle checks the ChatGPT picker, not the
+server-side model. On explicit interruption, use the Codex
 helper's `cancel --state-file`.

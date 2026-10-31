@@ -134,16 +134,17 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.1.2 (runs in Claude Code and Codex)
+## council 1.2.0 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository
 ([original SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
 Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
-Claude Opus 5.5 and Claude Fable 5.1 in parallel, then integrates their
-positions into one answer with origin tags. Changes from the original: four
-fixed members with their own runtime instructions instead of one flagship
-per provider, members always read-only, effort `xhigh`.
+Claude Opus 5.5 and Claude Fable 5.1, plus ChatGPT Pro when it runs in
+Codex, in parallel, then integrates their positions into one answer with
+origin tags. Changes from the original: fixed members with their own
+runtime instructions instead of one flagship per provider, members always
+read-only, effort `xhigh`.
 
 ### Requirements
 
@@ -152,6 +153,10 @@ per provider, members always read-only, effort `xhigh`.
 - For Opus and Fable: Claude Code 2.1.304 or newer as the host, or, in
   Codex, an installed, authenticated Claude Code CLI (2.1.257 or newer for
   Fable 5.1).
+- For Pro (Codex only): the [Oracle](https://github.com/steipete/oracle)
+  CLI 0.22.2 or newer (`npm install -g @steipete/oracle`, Node.js 24 or
+  newer), Chrome, and a ChatGPT plan with Pro. Sign in once in the Chrome
+  window Oracle opens on the first run.
 
 ### Install
 
@@ -170,14 +175,15 @@ $council [flags] <request>
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable` | asked; all four recommended |
-| `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs | asked; `xhigh` recommended |
+| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable`, plus `pro` in Codex | asked; all available recommended |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs; Pro has no effort setting | asked; `xhigh` recommended |
 | `--no-web` | no value | off |
 
 ### Notable behavior
 
 - Without `--members` and `--effort`, the skill first offers a choice of
-  members and effort as a picker, with all four and `xhigh` as defaults.
+  members and effort as a picker, with all available members and `xhigh`
+  as defaults.
   Claude Code always has the picker. Codex has it in Plan mode, and in
   Default mode only after
   `codex features enable default_mode_request_user_input`; the flag is off
@@ -192,6 +198,11 @@ $council [flags] <request>
 - Each further round resumes each member's own session with what changed.
   The council loops until every member is satisfied or a round changes
   nothing.
+- Pro is GPT-6 Astra at ChatGPT's Pro tier, sent through Oracle's browser
+  mode with the attached files only. It counts against your ChatGPT Pro
+  usage, and each round takes 10 to 60 minutes, so the council waits that
+  long. Later rounds continue the same ChatGPT conversation through
+  Oracle's `--followup`.
 - Members run read-only; the lead makes authorized edits. In Claude Code
   the Opus and Fable subagents are bound by the handoff, not by tool
   limits, and their model alias is requested, not checked.
@@ -201,9 +212,10 @@ $council [flags] <request>
 - Verified offline with simulated CLIs: four parallel members, per-member
   state and resume across four rounds. The Claude helper was
   run live once from inside Claude Code (Haiku, one turn), so the helper
-  route stays open there. Not verified: the Claude Code subagent path and
-  `codex exec` inside a Codex session. No live member calls were made for
-  this release.
+  route stays open there. Not verified: the Claude Code subagent path,
+  `codex exec` inside a Codex session and the Oracle commands for Pro,
+  which follow Oracle's documentation but were not run. No live member
+  calls were made for this release.
 
 ## bmw-lease-rates 1.3.0 (runs in Claude Code and Codex)
 
