@@ -10,6 +10,7 @@ Skills for Claude Code and OpenAI Codex.
 | `vw-lease-rates` | Codex | `codex/vw-lease-rates` |
 | `openrouter-agent` | Codex on Windows | `codex/openrouter-agent` |
 | `clear-writing` | Claude Code | `claude-code/clear-writing` |
+| `council` | Claude Code and Codex | `shared/council` |
 
 ## Duel skills
 
@@ -132,6 +133,57 @@ $claude-duel [flags] <question>
 - The helper checks the reviewer model on every assistant message in
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
+
+## council 1.0.0 (runs in Claude Code and Codex)
+
+Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
+Claude Opus 5.5 and Claude Fable 5.1 in parallel, then integrates their
+positions into one answer with origin tags. Adapted from the
+[T3 council skill](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md):
+four fixed members instead of one per provider, any request instead of a
+code review, at most two rounds, no substitution of missing members.
+
+### Requirements
+
+- Node.js.
+- For Astra and Sol: an installed, authenticated Codex CLI.
+- For Opus and Fable in Codex: an installed, authenticated Claude Code CLI
+  (2.1.257 or newer for Fable 5.1). In Claude Code they run as native
+  subagents.
+
+### Install
+
+Copy `shared/council` to `~/.claude/skills/council` or
+`~/.codex/skills/council`.
+
+### Usage
+
+Use only on an explicit user request for the council (for example, "ask
+the council whether ...") or invoke it directly:
+
+```
+/council [flags] <request>
+```
+
+| Flag | Values | Default |
+| --- | --- | --- |
+| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable` | all four |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
+| `--no-web` | no value | off |
+
+### Notable behavior
+
+- The lead forms its own answer first. If its model is one of the four,
+  that answer takes the seat and the member is not launched.
+- Members answer the same handoff independently. Round 2 resumes each
+  member's own session with the revised artifact and the merged map. There
+  is no third round.
+- Members run read-only. The lead makes authorized edits.
+- `scripts/codex-duel.mjs` and `scripts/claude-duel.mjs` are unchanged
+  copies of the duel helpers (1.5.0 and 1.2.0). Copy helper fixes here.
+- Verified offline with simulated CLIs: parallel members, per-member state
+  and resume. No live model calls were made for this release. Running
+  `codex exec` from inside a Codex session is not verified.
 
 ## bmw-lease-rates 1.3.0 (runs in Claude Code and Codex)
 
