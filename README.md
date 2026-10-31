@@ -134,25 +134,25 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.2.0 (runs in Claude Code and Codex)
+## council 1.3.0 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
-[tstack](https://github.com/t3dotgg/tstack) repository
-([original SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
+[tstack](https://github.com/t3dotgg/tstack) repository ([original
+SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
 Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
-Claude Opus 5.5 and Claude Fable 5.1, plus ChatGPT Pro when it runs in
-Codex, in parallel, then integrates their positions into one answer with
-origin tags. Changes from the original: fixed members with their own
-runtime instructions instead of one flagship per provider, members always
-read-only, effort `xhigh`.
+Claude Opus 5.5 and Claude Fable 5.1, plus ChatGPT Pro when it runs in Codex
+and Claude Sonnet 5.5 on request, in parallel, then integrates their
+positions into one answer with origin tags. Changes from the original: fixed
+members with their own runtime instructions instead of one flagship per
+provider, members always read-only, effort `xhigh`.
 
 ### Requirements
 
 - Node.js.
 - For Astra and Sol: an installed, authenticated Codex CLI.
-- For Opus and Fable: Claude Code 2.1.304 or newer as the host, or, in
-  Codex, an installed, authenticated Claude Code CLI (2.1.257 or newer for
-  Fable 5.1).
+- For Opus, Fable and Sonnet: Claude Code 2.1.304 or newer as the host,
+  or, in Codex, an installed, authenticated Claude Code CLI (2.1.257 or
+  newer for Fable 5.1).
 - For Pro (Codex only): the [Oracle](https://github.com/steipete/oracle)
   CLI 0.22.2 or newer (`npm install -g @steipete/oracle`, Node.js 24 or
   newer), Chrome, and a ChatGPT plan with Pro. Sign in once in the Chrome
@@ -175,15 +175,16 @@ $council [flags] <request>
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable`, plus `pro` in Codex | asked; all available recommended |
+| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable`, `sonnet`, plus `pro` in Codex | asked; all except Sonnet recommended |
 | `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs; Pro has no effort setting | asked; `xhigh` recommended |
 | `--no-web` | no value | off |
 
 ### Notable behavior
 
 - Without `--members` and `--effort`, the skill first offers a choice of
-  members and effort as a picker, with all available members and `xhigh`
-  as defaults.
+  members and effort as a picker, with every member except Sonnet and
+  `xhigh` as defaults. Sonnet has no picker option of its own; name it in
+  the picker's free-form answer or pass it with `--members`.
   Claude Code always has the picker. Codex has it in Plan mode, and in
   Default mode only after
   `codex features enable default_mode_request_user_input`; the flag is off
