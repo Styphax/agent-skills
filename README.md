@@ -178,10 +178,11 @@ $council [flags] <request>
 
 - Without `--members` and `--effort`, the skill first asks which members
   and which effort to use: through AskUserQuestion in Claude Code and
-  request_user_input in Codex. In Codex Default mode that tool needs the
-  feature `default_mode_request_user_input` (enable it with
-  `codex features enable default_mode_request_user_input`); Plan and Pair
-  modes have it anyway. Where it is unavailable, or when a Default-mode
+  request_user_input in Codex. Codex offers that tool in Plan mode; in
+  Default mode it needs the feature flag `default_mode_request_user_input`
+  (`codex features enable default_mode_request_user_input`), which the
+  official docs do not list and which Codex maintainers call under
+  development. Where the tool is unavailable, or when a Default-mode
   question times out unanswered after about two minutes and returns an
   empty answer, the skill asks in plain text. Pass both flags to skip the
   question.
