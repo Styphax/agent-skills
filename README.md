@@ -134,14 +134,14 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.3.1 (runs in Claude Code and Codex)
+## council 1.4.0 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository ([original
 SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
 Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
-Claude Opus 5.5 and Claude Fable 5.1, plus ChatGPT Pro when it runs in Codex
-and Claude Sonnet 5.5 on request, in parallel, then integrates their
+ChatGPT Pro, Claude Opus 5.5 and Claude Fable 5.1, plus Claude Sonnet 5.5
+on request, in parallel, then integrates their
 positions into one answer with origin tags. Changes from the original: fixed
 members with their own runtime instructions instead of one flagship per
 provider, members always read-only, effort `xhigh`.
@@ -153,8 +153,8 @@ provider, members always read-only, effort `xhigh`.
 - For Opus, Fable and Sonnet: Claude Code 2.1.304 or newer as the host,
   or, in Codex, an installed, authenticated Claude Code CLI (2.1.257 or
   newer for Fable 5.1).
-- For Pro (Codex only): Node.js 24 or newer, Chrome, and a ChatGPT plan
-  with Pro. The skill runs the latest
+- For Pro: a local session (not a cloud one), Node.js 24 or newer, Chrome,
+  and a ChatGPT plan with Pro. The skill runs the latest
   [Oracle](https://github.com/steipete/oracle) release through `npx`, so
   Oracle needs no separate install. Sign in once in the Chrome window
   Oracle opens on the first run.
@@ -176,24 +176,25 @@ $council [flags] <request>
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable`, `sonnet`, plus `pro` in Codex | asked; all except Sonnet recommended |
+| `--members` | comma-separated subset of `astra`, `sol`, `pro`, `opus`, `fable`, `sonnet` | asked; all except Sonnet recommended |
 | `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs; Pro has no effort setting | asked; `xhigh` recommended |
 | `--no-web` | no value | off |
 
 ### Notable behavior
 
-- Without `--members` and `--effort`, the skill first offers a choice of
-  members and effort as a picker, with every member except Sonnet and
-  `xhigh` as defaults. Sonnet has no picker option of its own; name it in
-  the picker's free-form answer or pass it with `--members`.
-  Claude Code always has the picker. Codex has it in Plan mode, and in
-  Default mode only after
-  `codex features enable default_mode_request_user_input`; the flag is off
-  by default and marked under development. Codex's picker is single-choice
-  with a free-form answer, and its Default mode allows it only for optional
-  questions, so an unanswered question falls back to the defaults. Without
-  a picker the skill asks in one plain-text line. Pass both flags to skip
-  the question.
+- Without `--members` and `--effort`, the skill first asks with a picker of
+  three questions: OpenAI members, Anthropic members and effort. Each
+  question names all its choices, including those without a button, and
+  accepts any typed combination. Defaults: every member except Sonnet, at
+  `xhigh`. Claude Code shows the members as multi-select buttons. Codex
+  shows three preset buttons per question, because its picker is
+  single-choice with at most three options. Codex has the picker in Plan
+  mode, and in Default mode only after `codex features enable
+  default_mode_request_user_input`; the flag is off by default and marked
+  under development. Codex's Default mode allows the picker only for
+  optional questions, so an unanswered question falls back to the defaults.
+  Without a picker the skill asks in one plain-text line. Pass both flags to
+  skip the question.
 - Members answer the same handoff independently. The lead judges and is
   not a member. If no member of one provider completes, the lead stops and
   asks before integrating.

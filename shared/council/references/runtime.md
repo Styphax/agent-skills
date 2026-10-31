@@ -3,10 +3,27 @@
 Requires Node.js. Astra and Sol need an authenticated Codex CLI. Opus and
 Fable run as native subagents in Claude Code (2.1.304+) and through an
 authenticated Claude Code CLI in Codex (2.1.257+ for Fable 5.1); Sonnet uses
-the same paths. Pro runs only in Codex, through the Oracle CLI. Use one
+the same paths. Pro runs through the Oracle CLI in both harnesses. Use one
 state file per member in the task workspace, start every member before
 waiting for any, and pass the same model, effort and `--no-web` in both
 rounds, from the same working directory.
+
+## Picker
+
+Claude Code: AskUserQuestion with three questions. "OpenAI" is a
+multi-select of Astra, Sol and Pro, "Anthropic" a multi-select of Opus,
+Fable and Sonnet; mark each default "(Recommended)". "Effort" offers xhigh
+(Recommended), max, high and medium.
+
+Codex: request_user_input with three single-choice questions, each with a
+free-form answer added by the client. "OpenAI": "Astra, Sol and Pro
+(Recommended)", "Astra and Sol", "None". "Anthropic": "Opus and Fable
+(Recommended)", "Opus, Fable and Sonnet", "None". "Effort": "xhigh
+(Recommended)", "max", "high".
+
+In both, each question's text names all its choices, including those
+without a button: the provider's members, all five effort levels and
+`member=LEVEL` pairs, and that any other combination can be typed.
 
 ## Astra and Sol, in both harnesses
 
@@ -45,14 +62,14 @@ read the `.out` file after the process has exited. The member gets only
 Read, Glob, Grep and, unless `--no-web`, WebSearch and WebFetch, and runs in
 safe mode.
 
-## Pro, in Codex
+## Pro, in both harnesses
 
 Pro is ChatGPT's Pro tier on the user's signed-in account, driven by the
 Oracle CLI in browser mode. `npx` runs Oracle's latest release on every
 call, so no separate install or update is needed; it requires Node.js 24+
-and Chrome. On the first run, sign in to chatgpt.com in the Chrome window Oracle
-opens; the profile is kept. Pro sees only attached files, so attach the
-handoff and every file it names, and nothing else from `work/`.
+and Chrome. On the first run, sign in to chatgpt.com in the Chrome window
+Oracle opens; the profile is kept. Pro sees only attached files, so attach
+the handoff and every file it names, and nothing else from `work/`.
 
 ```text
 npx -y @steipete/oracle@latest --engine browser --browser-manual-login --model gpt-6-pro --slug "<council>-pro-r1" --wait --write-output "<work>/pro.round1.md" -p "Answer the attached council handoff." --file "<work>/handoff.md" --file "<material>"
@@ -60,11 +77,15 @@ npx -y @steipete/oracle@latest --followup "<council>-pro-r1" --slug "<council>-p
 ```
 
 `gpt-6-pro` selects GPT-6 Astra at the Pro tier, and Oracle aborts when it
-cannot confirm Pro. A round takes 10 to 60 minutes. Start it like the
-Claude helper and read the output file after exit. Each later round
-follows up on the previous round's slug, which reopens the same ChatGPT
-conversation. If the CLI exits early, reattach with the same `npx` prefix
-and `session <slug>`; never re-run it. `--no-web` is a handoff rule here.
+cannot confirm Pro. A round takes 10 to 60 minutes. In Claude Code, run each
+command with the Bash tool in the background at its longest timeout and read
+the output file when the completion notice arrives. In Codex, start it like
+the Claude helper and read the output file after exit. Pro needs a local
+session, because Oracle opens Chrome with the user's ChatGPT sign-in. Each
+later round follows up on the previous round's slug, which reopens the same
+ChatGPT conversation. If the CLI exits early, reattach with the same `npx`
+prefix and `session <slug>`; never re-run it. `--no-web` is a handoff rule
+here.
 
 ## Failures
 

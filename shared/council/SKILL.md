@@ -1,9 +1,9 @@
 ---
 name: council
-description: Put a question, decision, plan or review to a council of GPT-6 Astra, GPT-6.1 Sol, Claude Opus 5.5, Claude Fable 5.1, optionally Claude Sonnet 5.5 and, in Codex, ChatGPT Pro, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
-allowed-tools: Bash(node:*)
+description: Put a question, decision, plan or review to a council of GPT-6 Astra, GPT-6.1 Sol, ChatGPT Pro, Claude Opus 5.5, Claude Fable 5.1 and optionally Claude Sonnet 5.5, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
+allowed-tools: Bash(node:*), Bash(npx -y @steipete/oracle@latest:*)
 metadata:
-  version: 1.3.1
+  version: 1.4.0
   source: https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md
 ---
 
@@ -13,20 +13,16 @@ average positions, manufacture disagreement or require consensus. Keep
 scope fixed: findings beyond the request are reported, not implemented.
 
 Flags before the request: `--members LIST` (subset of
-`astra,sol,opus,fable,sonnet`, plus `pro` in Codex), `--effort LEVEL`
-(`low`, `medium`, `high`, `xhigh`, `max`; one level for all or
-`member=LEVEL` pairs; Pro always runs at ChatGPT's Pro tier), `--no-web`
-(supplied material only; state it in the handoff). If members or effort are
-not given, offer the choice before starting, as an optional question with
-recommended defaults: Astra, Sol, Opus and Fable, plus Pro in Codex, at
-`xhigh`; Sonnet joins only when chosen. In Claude Code use AskUserQuestion
-with members as a multi-select of those four. In Codex use
-request_user_input, which is single-choice: "All five (Recommended)", "Four
-without Pro", "Astra, Fable and Pro". Effort in both: "xhigh (Recommended)",
-"max", "high". The free-form answer covers other choices. If no question
-tool is listed, ask in one plain-text line naming the defaults. If the tool
-returns no answer, use the defaults and say so. Without a request, use the
-latest substantive one. Preserve the conversation's constraints and
+`astra,sol,pro,opus,fable,sonnet`), `--effort LEVEL` (`low`, `medium`,
+`high`, `xhigh`, `max`; one level for all or `member=LEVEL` pairs; Pro
+always runs at ChatGPT's Pro tier), `--no-web` (supplied material only;
+state it in the handoff). If members or effort are not given, ask first with
+the picker in [runtime](references/runtime.md), as an optional question
+whose text names every member and effort level. Defaults: Astra, Sol, Pro,
+Opus and Fable at `xhigh`; Sonnet only when chosen. If no question tool is
+listed, ask in one plain-text line naming all options and the defaults. If
+the tool returns no answer, use the defaults and say so. Without a request,
+use the latest substantive one. Preserve the conversation's constraints and
 language. Unknown options or members require clarification; never silently
 substitute settings.
 
@@ -48,8 +44,8 @@ substitute settings.
    research, time or token budget unless the user asks.
 4. Launch every member with the same handoff as described in
    [runtime](references/runtime.md) and wait for all. If a member fails,
-   report it and never substitute; if no member of one provider completes,
-   stop and ask before integrating. Merge the answers into one map of
+   report it and never substitute; if every selected member of one
+   provider fails, stop and ask before integrating. Merge the answers into one map of
    positions, each tagged with the members holding it, for example
    `[Sol, Fable]` or `[all]`, with each side's reasons, then add the
    lead's assessment.
