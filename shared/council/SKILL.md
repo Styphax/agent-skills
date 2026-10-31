@@ -42,16 +42,19 @@ or members require clarification; never silently substitute settings.
    `[Sol, Fable]` or `[all]`, with each side's reasons, then add the
    lead's assessment.
 
-## Round 2
+## Further rounds
 
-Run a second round only when material disagreement remains after the
-lead's assessment, the artifact changed, or the user asks. Never a third.
-If authorized, first apply the recommendations the lead accepts, run tests
-or checks on the final files after the last edit, and report what was
-checked; agreement is not verification. Resume each member's own session
-with the merged map, the lead's assessment and any revised artifact with
-its test results. Ask it to challenge what remains, concede answered points
-and skip resolved findings.
+After each round, if authorized, apply the recommendations the lead
+accepts, run tests or checks on the final files after the last edit, and
+report what was checked; agreement is not verification. Start the next
+round when a member still objects materially to the current answer or
+artifact, or the user asks. Resume each member's own session with what
+changed since its last turn: the merged map, the lead's assessment and any
+revised artifact with its test results. Ask it to challenge what remains,
+concede answered points, skip resolved findings and say whether it is
+satisfied. Stop when every member is satisfied, when a round changed
+nothing (report the remaining disagreement as unresolved), or when the user
+stops. Announce each round.
 
 ## Result
 
@@ -63,5 +66,5 @@ none. If the work ends in a pull request, put the table in its description
 by editing it, not in a comment. End with one line naming members,
 requested effort, flags, completed rounds and any failed member. Claim
 consensus only when every member agrees on the conclusion and main reasons.
-No transcripts unless asked. Distinguish a completed round 1 from a failed
-round 2; no automatic retry.
+No transcripts unless asked. A failed round does not undo completed ones;
+no automatic retry.

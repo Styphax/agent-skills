@@ -141,8 +141,7 @@ Claude Opus 5.5 and Claude Fable 5.1 in parallel, then integrates their
 positions into one answer with origin tags. Adapted from the
 [T3 council skill](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md).
 Changes: four fixed members with their own runtime instructions instead of
-one flagship per provider, at most two rounds instead of a loop until every
-member is satisfied, members always read-only, effort `xhigh`.
+one flagship per provider, members always read-only, effort `xhigh`.
 
 ### Requirements
 
@@ -178,15 +177,17 @@ $council [flags] <request>
 - Members answer the same handoff independently. The lead judges and is
   not a member. If no member of one provider completes, the lead stops and
   asks before integrating.
-- Round 2 resumes each member's own session with the merged map and any
-  revised artifact. There is no third round.
+- Each further round resumes each member's own session with what changed.
+  The council loops until every member is satisfied or a round changes
+  nothing.
 - Members run read-only; the lead makes authorized edits. In Claude Code
   the Opus and Fable subagents are bound by the handoff, not by tool
   limits, and their model alias is requested, not checked.
-- `scripts/codex-duel.mjs` and `scripts/claude-duel.mjs` are unchanged
-  copies of the duel helpers (1.5.0 and 1.2.0). Copy helper fixes here.
+- `scripts/codex-member.mjs` and `scripts/claude-member.mjs` are the duel
+  helpers (codex-duel 1.5.0, claude-duel 1.2.0) with the two-turn limit
+  removed. Copy other helper fixes here.
 - Verified offline with simulated CLIs: four parallel members, per-member
-  state, round-2 resume and refusal of a third turn. The Claude helper was
+  state and resume across four rounds. The Claude helper was
   run live once from inside Claude Code (Haiku, one turn), so the helper
   route stays open there. Not verified: the Claude Code subagent path and
   `codex exec` inside a Codex session. No live member calls were made for

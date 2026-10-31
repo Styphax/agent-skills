@@ -69,7 +69,7 @@ export function nextState(options, previous, cwd = process.cwd()) {
     if (previous) throw new Error('State already exists. Use a new state file for a new duel.');
     return { model: options.model, effort: options.effort, fast: options.fast, write: options.write, noWeb: options.noWeb, cwd, turns: 0, sessionId: null };
   }
-  if (!previous || previous.status !== 'completed' || previous.turns !== 1) throw new Error('Resume requires exactly one completed turn; maximum two turns per duel.');
+  if (!previous || previous.status !== 'completed' || previous.turns < 1) throw new Error('Resume requires a completed previous turn.');
   for (const key of ['model', 'effort', 'fast', 'write', 'noWeb']) {
     if (previous[key] !== options[key]) throw new Error(`Cannot change ${key} during a duel.`);
   }
