@@ -134,7 +134,7 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.1.1 (runs in Claude Code and Codex)
+## council 1.1.2 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository
@@ -176,16 +176,16 @@ $council [flags] <request>
 
 ### Notable behavior
 
-- Without `--members` and `--effort`, the skill first asks which members
-  and which effort to use: through AskUserQuestion in Claude Code and
-  request_user_input in Codex. Codex offers that tool in Plan mode; in
-  Default mode it needs the feature flag `default_mode_request_user_input`
-  (`codex features enable default_mode_request_user_input`), which the
-  official docs do not list and which Codex maintainers call under
-  development. Where the tool is unavailable, or when a Default-mode
-  question times out unanswered after about two minutes and returns an
-  empty answer, the skill asks in plain text. Pass both flags to skip the
-  question.
+- Without `--members` and `--effort`, the skill first offers a choice of
+  members and effort as a picker, with all four and `xhigh` as defaults.
+  Claude Code always has the picker. Codex has it in Plan mode, and in
+  Default mode only after
+  `codex features enable default_mode_request_user_input`; the flag is off
+  by default and marked under development. Codex's picker is single-choice
+  with a free-form answer, and its Default mode allows it only for optional
+  questions, so an unanswered question falls back to the defaults. Without
+  a picker the skill asks in one plain-text line. Pass both flags to skip
+  the question.
 - Members answer the same handoff independently. The lead judges and is
   not a member. If no member of one provider completes, the lead stops and
   asks before integrating.
