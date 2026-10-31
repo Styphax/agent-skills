@@ -134,7 +134,7 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.0.0 (runs in Claude Code and Codex)
+## council 1.1.0 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository
@@ -170,12 +170,17 @@ $council [flags] <request>
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable` | all four |
-| `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
+| `--members` | comma-separated subset of `astra`, `sol`, `opus`, `fable` | asked; all four recommended |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs | asked; `xhigh` recommended |
 | `--no-web` | no value | off |
 
 ### Notable behavior
 
+- Without `--members` and `--effort`, the skill first asks which members
+  and which effort to use: through AskUserQuestion in Claude Code and
+  request_user_input in Codex. Codex rejects that tool outside Plan and
+  Pair modes, so there the skill asks in plain text. Pass both flags to
+  skip the question.
 - Members answer the same handoff independently. The lead judges and is
   not a member. If no member of one provider completes, the lead stops and
   asks before integrating.

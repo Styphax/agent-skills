@@ -3,7 +3,7 @@ name: council
 description: Put a question, decision, plan or review to a council of GPT-6 Astra, GPT-6.1 Sol, Claude Opus 5.5 and Claude Fable 5.1, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
 allowed-tools: Bash(node:*)
 metadata:
-  version: 1.0.0
+  version: 1.1.0
   source: https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md
 ---
 
@@ -12,12 +12,17 @@ parallel, then judges from evidence. The lead is not a member. Do not
 average positions, manufacture disagreement or require consensus. Keep
 scope fixed: findings beyond the request are reported, not implemented.
 
-Flags before the request: `--members LIST` (subset of `astra,sol,opus,fable`,
-default all four), `--effort LEVEL` (`low`, `medium`, `high`, `xhigh`
-default, `max`, for every member), `--no-web` (supplied material only;
-state it in the handoff). Without a request, use the latest substantive
-one. Preserve the conversation's constraints and language. Unknown options
-or members require clarification; never silently substitute settings.
+Flags before the request: `--members LIST` (subset of `astra,sol,opus,fable`),
+`--effort LEVEL` (`low`, `medium`, `high`, `xhigh`, `max`; one level for
+all or `member=LEVEL` pairs), `--no-web` (supplied material only; state it
+in the handoff). If members or effort are not given, ask before anything
+else and wait for the answer: one multi-select question for members and
+one for effort, offering all four and `xhigh` as the recommended choices,
+through the harness's question tool (AskUserQuestion in Claude Code,
+request_user_input in Codex) or in plain text where that tool is
+unavailable. Without a request, use the latest substantive one. Preserve
+the conversation's constraints and language. Unknown options or members
+require clarification; never silently substitute settings.
 
 ## Round 1
 
