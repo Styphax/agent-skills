@@ -48,22 +48,23 @@ safe mode.
 ## Pro, in Codex
 
 Pro is ChatGPT's Pro tier on the user's signed-in account, driven by the
-Oracle CLI (`@steipete/oracle` 0.22.2+, Node.js 24+, Chrome) in browser
-mode. On the first run, sign in to chatgpt.com in the Chrome window Oracle
+Oracle CLI in browser mode. `npx` runs Oracle's latest release on every
+call, so no separate install or update is needed; it requires Node.js 24+
+and Chrome. On the first run, sign in to chatgpt.com in the Chrome window Oracle
 opens; the profile is kept. Pro sees only attached files, so attach the
 handoff and every file it names, and nothing else from `work/`.
 
 ```text
-oracle --engine browser --browser-manual-login --model gpt-6-pro --slug "<council>-pro-r1" --wait --write-output "<work>/pro.round1.md" -p "Answer the attached council handoff." --file "<work>/handoff.md" --file "<material>"
-oracle --followup "<council>-pro-r1" --slug "<council>-pro-r2" --wait --write-output "<work>/pro.round2.md" -p "Answer the attached council follow-up." --file "<work>/round2.md" --file "<revised files>"
+npx -y @steipete/oracle@latest --engine browser --browser-manual-login --model gpt-6-pro --slug "<council>-pro-r1" --wait --write-output "<work>/pro.round1.md" -p "Answer the attached council handoff." --file "<work>/handoff.md" --file "<material>"
+npx -y @steipete/oracle@latest --followup "<council>-pro-r1" --slug "<council>-pro-r2" --wait --write-output "<work>/pro.round2.md" -p "Answer the attached council follow-up." --file "<work>/round2.md" --file "<revised files>"
 ```
 
 `gpt-6-pro` selects GPT-6 Astra at the Pro tier, and Oracle aborts when it
 cannot confirm Pro. A round takes 10 to 60 minutes. Start it like the
 Claude helper and read the output file after exit. Each later round
 follows up on the previous round's slug, which reopens the same ChatGPT
-conversation. If the CLI exits early, reattach with `oracle session <slug>`;
-never re-run it. `--no-web` is a handoff rule here.
+conversation. If the CLI exits early, reattach with the same `npx` prefix
+and `session <slug>`; never re-run it. `--no-web` is a handoff rule here.
 
 ## Failures
 

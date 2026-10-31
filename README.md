@@ -134,7 +134,7 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.3.0 (runs in Claude Code and Codex)
+## council 1.3.1 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository ([original
@@ -153,10 +153,11 @@ provider, members always read-only, effort `xhigh`.
 - For Opus, Fable and Sonnet: Claude Code 2.1.304 or newer as the host,
   or, in Codex, an installed, authenticated Claude Code CLI (2.1.257 or
   newer for Fable 5.1).
-- For Pro (Codex only): the [Oracle](https://github.com/steipete/oracle)
-  CLI 0.22.2 or newer (`npm install -g @steipete/oracle`, Node.js 24 or
-  newer), Chrome, and a ChatGPT plan with Pro. Sign in once in the Chrome
-  window Oracle opens on the first run.
+- For Pro (Codex only): Node.js 24 or newer, Chrome, and a ChatGPT plan
+  with Pro. The skill runs the latest
+  [Oracle](https://github.com/steipete/oracle) release through `npx`, so
+  Oracle needs no separate install. Sign in once in the Chrome window
+  Oracle opens on the first run.
 
 ### Install
 
