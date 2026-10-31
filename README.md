@@ -139,17 +139,18 @@ $claude-duel [flags] <question>
 Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
 Claude Opus 5.5 and Claude Fable 5.1 in parallel, then integrates their
 positions into one answer with origin tags. Adapted from the
-[T3 council skill](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md):
-four fixed members instead of one per provider, any request instead of a
-code review, at most two rounds, no substitution of missing members.
+[T3 council skill](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md).
+Changes: four fixed members with their own runtime instructions instead of
+one flagship per provider, at most two rounds instead of a loop until every
+member is satisfied, members always read-only, effort `xhigh`.
 
 ### Requirements
 
 - Node.js.
 - For Astra and Sol: an installed, authenticated Codex CLI.
-- For Opus and Fable in Codex: an installed, authenticated Claude Code CLI
-  (2.1.257 or newer for Fable 5.1). In Claude Code they run as native
-  subagents.
+- For Opus and Fable: Claude Code 2.1.304 or newer as the host, or, in
+  Codex, an installed, authenticated Claude Code CLI (2.1.257 or newer for
+  Fable 5.1).
 
 ### Install
 
@@ -163,6 +164,7 @@ the council whether ...") or invoke it directly:
 
 ```
 /council [flags] <request>
+$council [flags] <request>
 ```
 
 | Flag | Values | Default |
@@ -173,17 +175,22 @@ the council whether ...") or invoke it directly:
 
 ### Notable behavior
 
-- The lead forms its own answer first. If its model is one of the four,
-  that answer takes the seat and the member is not launched.
-- Members answer the same handoff independently. Round 2 resumes each
-  member's own session with the revised artifact and the merged map. There
-  is no third round.
-- Members run read-only. The lead makes authorized edits.
+- Members answer the same handoff independently. The lead judges and is
+  not a member. If no member of one provider completes, the lead stops and
+  asks before integrating.
+- Round 2 resumes each member's own session with the merged map and any
+  revised artifact. There is no third round.
+- Members run read-only; the lead makes authorized edits. In Claude Code
+  the Opus and Fable subagents are bound by the handoff, not by tool
+  limits, and their model alias is requested, not checked.
 - `scripts/codex-duel.mjs` and `scripts/claude-duel.mjs` are unchanged
   copies of the duel helpers (1.5.0 and 1.2.0). Copy helper fixes here.
-- Verified offline with simulated CLIs: parallel members, per-member state
-  and resume. No live model calls were made for this release. Running
-  `codex exec` from inside a Codex session is not verified.
+- Verified offline with simulated CLIs: four parallel members, per-member
+  state, round-2 resume and refusal of a third turn. The Claude helper was
+  run live once from inside Claude Code (Haiku, one turn), so the helper
+  route stays open there. Not verified: the Claude Code subagent path and
+  `codex exec` inside a Codex session. No live member calls were made for
+  this release.
 
 ## bmw-lease-rates 1.3.0 (runs in Claude Code and Codex)
 
