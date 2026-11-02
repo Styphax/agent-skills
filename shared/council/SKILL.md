@@ -3,7 +3,7 @@ name: council
 description: Put a question, decision, plan or review to a council of GPT-6 Astra, GPT-6.1 Sol, ChatGPT Pro, Claude Opus 5.5, Claude Fable 5.1 and optionally Claude Sonnet 5.5, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
 allowed-tools: Bash(node:*), Bash(npx -y @steipete/oracle@latest:*)
 metadata:
-  version: 1.4.0
+  version: 1.4.1
   source: https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md
 ---
 

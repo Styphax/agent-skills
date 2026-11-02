@@ -134,7 +134,7 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.4.0 (runs in Claude Code and Codex)
+## council 1.4.1 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository ([original
@@ -205,7 +205,11 @@ $council [flags] <request>
   mode with the attached files only. It counts against your ChatGPT Pro
   usage, and each round takes 10 to 60 minutes, so the council waits that
   long. Later rounds continue the same ChatGPT conversation through
-  Oracle's `--followup`.
+  Oracle's `--followup`. All files go up as one zip attachment, and Pro
+  starts its answer by listing the files it can read. If Oracle stops with
+  an error after the prompt was sent, for example because its check of the
+  sent message missed an attachment, the lead collects the answer with
+  `oracle session <slug> --live` before counting Pro as failed.
 - Members run read-only; the lead makes authorized edits. In Claude Code
   the Opus and Fable subagents are bound by the handoff, not by tool
   limits, and their model alias is requested, not checked.

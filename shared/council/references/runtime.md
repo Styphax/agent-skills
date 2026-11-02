@@ -69,11 +69,15 @@ Oracle CLI in browser mode. `npx` runs Oracle's latest release on every
 call, so no separate install or update is needed; it requires Node.js 24+
 and Chrome. On the first run, sign in to chatgpt.com in the Chrome window
 Oracle opens; the profile is kept. Pro sees only attached files, so attach
-the handoff and every file it names, and nothing else from `work/`.
+the handoff and every file it names, and nothing else from `work/`. Send
+them as one zip attachment: with several attachments, Oracle's check of the
+sent message can fail although ChatGPT received every file. The prompt asks
+Pro to list the files it can read; compare that list with the files sent
+and report a missing one as an evidence gap.
 
 ```text
-npx -y @steipete/oracle@latest --engine browser --browser-manual-login --model gpt-6-pro --slug "<council>-pro-r1" --wait --write-output "<work>/pro.round1.md" -p "Answer the attached council handoff." --file "<work>/handoff.md" --file "<material>"
-npx -y @steipete/oracle@latest --followup "<council>-pro-r1" --slug "<council>-pro-r2" --wait --write-output "<work>/pro.round2.md" -p "Answer the attached council follow-up." --file "<work>/round2.md" --file "<revised files>"
+npx -y @steipete/oracle@latest --engine browser --browser-manual-login --model gpt-6-pro --browser-bundle-files --browser-bundle-format zip --slug "<council>-pro-r1" --wait --write-output "<work>/pro.round1.md" -p "Answer the attached council handoff. Begin by listing every attached file you can read." --file "<work>/handoff.md" --file "<material>"
+npx -y @steipete/oracle@latest --followup "<council>-pro-r1" --browser-bundle-files --browser-bundle-format zip --slug "<council>-pro-r2" --wait --write-output "<work>/pro.round2.md" -p "Answer the attached council follow-up. Begin by listing every attached file you can read." --file "<work>/round2.md" --file "<revised files>"
 ```
 
 `gpt-6-pro` selects GPT-6 Astra at the Pro tier, and Oracle aborts when it
@@ -83,15 +87,21 @@ the output file when the completion notice arrives. In Codex, start it like
 the Claude helper and read the output file after exit. Pro needs a local
 session, because Oracle opens Chrome with the user's ChatGPT sign-in. Each
 later round follows up on the previous round's slug, which reopens the same
-ChatGPT conversation. If the CLI exits early, reattach with the same `npx`
-prefix and `session <slug>`; never re-run it. `--no-web` is a handoff rule
-here.
+ChatGPT conversation. Never re-run a command. If it exits early or with an
+error, read `browser.runtime.promptSubmitted` in
+`~/.oracle/sessions/<slug>/meta.json`. When it is true, the prompt reached
+ChatGPT and Pro may still answer: collect the answer with the same `npx`
+prefix and `session <slug> --live --write-output "<work>/pro.roundN.md"`,
+and count Pro as failed only if that returns no answer. `--no-web` is a
+handoff rule here.
 
 ## Failures
 
 Both helpers enforce exact-session resume and unchanged settings; rounds
 are unlimited. On failure, keep the state and logs, do not resume or
-retry, and report that member as failed. Effort is requested, not measured.
+retry, and report that member as failed. An Oracle error after the prompt
+was submitted is not yet a failure; follow the Pro section first. Effort is
+requested, not measured.
 The Claude helper checks the model on every assistant message; the Codex
 event stream does not attest it; Oracle checks the ChatGPT picker, not the
 server-side model. On explicit interruption, use the Codex
