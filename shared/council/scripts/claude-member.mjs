@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-const DEFAULT_MODEL = 'claude-fable-5-1';
+const DEFAULT_MODEL = 'claude-fable-5-2';
 
 export function parseArgs(argv) {
   const options = { model: DEFAULT_MODEL, effort: 'xhigh', resume: false, noWeb: false, dryRun: false };
@@ -20,8 +20,8 @@ export function parseArgs(argv) {
     else if (values[arg] && argv[i + 1] && !argv[i + 1].startsWith('--')) options[values[arg]] = argv[++i];
     else throw new Error(`Unknown flag or missing value: ${arg}`);
   }
-  if (['fable', 'fable-5.1'].includes(options.model)) options.model = DEFAULT_MODEL;
-  if (!/^claude-[a-z0-9]+(?:-[a-z0-9]+)+$/.test(options.model)) throw new Error('Use fable, fable-5.1 or an explicit full claude-... model ID.');
+  if (['fable', 'fable-5.2'].includes(options.model)) options.model = DEFAULT_MODEL;
+  if (!/^claude-[a-z0-9]+(?:-[a-z0-9]+)+$/.test(options.model)) throw new Error('Use fable, fable-5.2 or an explicit full claude-... model ID.');
   if (!['low', 'medium', 'high', 'xhigh', 'max'].includes(options.effort)) throw new Error('Unsupported effort.');
   if (!options.promptFile || !options.stateFile) throw new Error('--prompt-file and --state-file are required.');
   options.promptFile = path.resolve(options.promptFile);

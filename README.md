@@ -134,13 +134,13 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.4.1 (runs in Claude Code and Codex)
+## council 1.5.0 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository ([original
 SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
 Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
-ChatGPT Pro, Claude Opus 5.5 and Claude Fable 5.1, plus Claude Sonnet 5.5
+ChatGPT Pro, Claude Opus 5.5 and Claude Fable 5.2, plus Claude Sonnet 5.5
 on request, in parallel, then integrates their
 positions into one answer with origin tags. Changes from the original: fixed
 members with their own runtime instructions instead of one flagship per
@@ -150,9 +150,12 @@ provider, members always read-only, effort `xhigh`.
 
 - Node.js.
 - For Astra and Sol: an installed, authenticated Codex CLI.
-- For Opus, Fable and Sonnet: Claude Code 2.1.304 or newer as the host,
-  or, in Codex, an installed, authenticated Claude Code CLI (2.1.257 or
-  newer for Fable 5.1).
+- For Opus and Sonnet: Claude Code 2.1.304 or newer as the host, or, in
+  Codex, an installed, authenticated Claude Code CLI.
+- For Fable: an installed, authenticated Claude Code CLI in both hosts
+  (tested with 2.1.318). The skill calls `claude-fable-5-2` through
+  `scripts/claude-member.mjs`, because Claude Code's `fable` alias still
+  selects Fable 5.1.
 - For Pro: a local session (not a cloud one), Node.js 24 or newer, Chrome,
   and a ChatGPT plan with Pro. The skill runs the latest
   [Oracle](https://github.com/steipete/oracle) release through `npx`, so
@@ -211,8 +214,10 @@ $council [flags] <request>
   sent message missed an attachment, the lead collects the answer with
   `oracle session <slug> --live` before counting Pro as failed.
 - Members run read-only; the lead makes authorized edits. In Claude Code
-  the Opus and Fable subagents are bound by the handoff, not by tool
-  limits, and their model alias is requested, not checked.
+  the Opus and Sonnet subagents are bound by the handoff, not by tool
+  limits, and their model alias is requested, not checked. Fable runs
+  through the helper, which allows only read and web tools and checks the
+  model on every message.
 - `scripts/codex-member.mjs` and `scripts/claude-member.mjs` are the duel
   helpers (codex-duel 1.5.0, claude-duel 1.2.0) with the two-turn limit
   removed. Copy other helper fixes here.
