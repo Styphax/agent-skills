@@ -2,7 +2,9 @@
 
 Requires Node.js. Astra and Sol need an authenticated Codex CLI. Fable 5.2
 runs through an authenticated Claude Code CLI in both harnesses (tested with
-2.1.318), because Claude Code's `fable` alias still selects Fable 5.1. Opus
+2.1.318) and is requested by its full ID, because the `fable` alias depends
+on the Claude Code version: 2.1.318 selects Fable 5.1, 2.1.321 and newer
+select Fable 5.2 (checked 2026-11-10). Opus
 and Sonnet run as native subagents in Claude Code (2.1.304+) and through the
 Claude Code CLI in Codex. Pro runs through the Oracle CLI in both harnesses. Use one
 state file per member in the task workspace, start every member before
@@ -43,7 +45,10 @@ authorized edits. Running this inside a Codex session is not yet verified.
 
 Use the Agent tool in the background with `subagent_type: general-purpose`,
 `model: opus` or `sonnet`, `effort` as requested and the handoff as the
-prompt. Never use `model: fable` for the council: it selects Fable 5.1.
+prompt. Use `model: fable` in the Agent tool only when the session runs
+Claude Code 2.1.321 or newer: older versions map the alias to Fable 5.1.
+The desktop app bundles its own version, so `claude --version` shows only
+the CLI on PATH.
 For later rounds, send the follow-up to the same agent with `SendMessage`;
 it keeps its model and history. The alias is requested, not checked: treat
 a model-switch notice in the result as a failed member. Read-only, no
