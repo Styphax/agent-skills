@@ -134,7 +134,7 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.5.0 (runs in Claude Code and Codex)
+## council 1.6.1 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository ([original
@@ -181,7 +181,8 @@ $council [flags] <request>
 | --- | --- | --- |
 | `--members` | comma-separated subset of `astra`, `sol`, `pro`, `opus`, `fable`, `sonnet` | asked; all except Sonnet recommended |
 | `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs; Pro has no effort setting | asked; `xhigh` recommended |
-| `--no-web` | no value | off |
+| `--target-score` | 0 to 10, decimal comma or point; reviews only; a bare number before the request also sets it (`/council 9 <request>`) | 8.5 |
+| `--no-web` | no value | off; set only when the user asks for it in the call or says yes to a direct question before round 1 |
 
 ### Notable behavior
 
@@ -203,7 +204,24 @@ $council [flags] <request>
   asks before integrating.
 - Each further round resumes each member's own session with what changed.
   The council loops until every member is satisfied or a round changes
-  nothing.
+  nothing. For a review, it also continues while a member's latest score is
+  below the target score and the artifact has changed since that score. A
+  round in which no score below the target rises counts as a round that
+  changed nothing, and so does a low score on an artifact that will not
+  change. Members never see the target score, but a member with file access
+  can read the default in the skill itself.
+- Claude members always use the user's Claude account login. The Claude
+  helper removes inherited API keys, custom endpoints and provider flags
+  from the child environment and checks `claude auth status` before it
+  sends the prompt. There is no API-key fallback.
+- Web access is on by default. The lead never chooses `--no-web` on its
+  own, and web access stays unchanged after round 1, because both helpers
+  refuse a settings change on resume.
+- In Codex, the lead starts every member command outside the sandbox
+  (`sandbox_permissions: "require_escalated"`). Codex's `workspace-write`
+  sandbox sends network traffic to a dead proxy and blocks writes outside
+  the workspace, so a Claude member inside it fails with `ENOTFOUND` and
+  cannot write its session to `~/.claude`.
 - Pro is GPT-6 Astra at ChatGPT's Pro tier, sent through Oracle's browser
   mode with the attached files only. It counts against your ChatGPT Pro
   usage, and each round takes 10 to 60 minutes, so the council waits that
@@ -226,8 +244,12 @@ $council [flags] <request>
   run live once from inside Claude Code (Haiku, one turn), so the helper
   route stays open there. Not verified: the Claude Code subagent path,
   `codex exec` inside a Codex session and the Oracle commands for Pro,
-  which follow Oracle's documentation but were not run. No live member
-  calls were made for this release.
+  which follow Oracle's documentation but were not run.
+- Live checks for 1.6.x: a three-round review with Sol at `high` from
+  Claude Code (scores 3, 8.5 and 9 against the default target, stopped as
+  satisfied), and one round with Opus at `medium` from `codex exec` with
+  the escalated helper call. `scripts/claude-account.test.mjs` covers the
+  account-login routing (`node --test`).
 
 ## bmw-lease-rates 1.3.0 (runs in Claude Code and Codex)
 

@@ -8,8 +8,26 @@ select Fable 5.2 (checked 2026-11-10). Opus
 and Sonnet run as native subagents in Claude Code (2.1.304+) and through the
 Claude Code CLI in Codex. Pro runs through the Oracle CLI in both harnesses. Use one
 state file per member in the task workspace, start every member before
-waiting for any, and pass the same model, effort and `--no-web` in both
-rounds, from the same working directory.
+waiting for any, and pass the same model and effort in every round, from
+the same working directory. Web access stays on: add `--no-web` only when
+the user set it as described in SKILL.md, and then in every round.
+
+## Codex sandbox
+
+In Codex, run every command that starts or resumes a member
+(`codex-member.mjs`, `claude-member.mjs` and Oracle) with
+`sandbox_permissions: "require_escalated"` and a one-line `justification`
+that names the council request. The `workspace-write` sandbox sends network
+traffic to a dead proxy and blocks writes outside the workspace, and the
+helpers need both: Claude Code writes its session to `~/.claude`, Codex to
+`~/.codex/sessions`, Oracle to `~/.oracle`, and Oracle starts Chrome.
+Inside the sandbox the Claude account check still passes, but the model
+call fails after about three minutes of retries (`ENOTFOUND`, seen on
+2026-11-16), and a later resume finds no session. Depending on
+`approvals_reviewer`, the user or Codex's automatic reviewer decides the
+request. If it is denied, report the member as failed and do not run it
+inside the sandbox. Turning on network access for the whole sandbox is no
+substitute, because it does not allow those writes.
 
 ## Picker
 
@@ -43,6 +61,10 @@ authorized edits. Running this inside a Codex session is not yet verified.
 
 ## Opus and Sonnet, in Claude Code
 
+Use native subagents only when the parent session uses the user's Claude
+account login. If that cannot be confirmed, use the CLI helper below,
+which verifies account authentication before submitting the request.
+
 Use the Agent tool in the background with `subagent_type: general-purpose`,
 `model: opus` or `sonnet`, `effort` as requested and the handoff as the
 prompt. Use `model: fable` in the Agent tool only when the session runs
@@ -51,8 +73,9 @@ The desktop app bundles its own version, so `claude --version` shows only
 the CLI on PATH.
 For later rounds, send the follow-up to the same agent with `SendMessage`;
 it keeps its model and history. The alias is requested, not checked: treat
-a model-switch notice in the result as a failed member. Read-only, no
-delegation and `--no-web` are handoff rules here, not tool restrictions,
+a model-switch notice in the result as a failed member. Read-only and no
+delegation, and `--no-web` when set, are handoff rules here, not tool
+restrictions,
 and the member loads the project's CLAUDE.md.
 
 ## Fable in both harnesses, Opus and Sonnet in Codex
@@ -69,7 +92,15 @@ the completion notice arrives. In Codex, let the host yield a session handle
 for each call, wait with its continuation tool, and read the `.out` file
 after the process has exited. The member gets only
 Read, Glob, Grep and, unless `--no-web`, WebSearch and WebFetch, and runs in
-safe mode.
+safe mode. Claude members use the user's Claude account login, never API-key
+billing or a cloud provider. The helper removes inherited API credentials,
+custom endpoints/headers and provider-selection flags from a child-only
+environment. It checks `claude auth status --json` in that same environment
+and requires `loggedIn: true`, `authMethod: claude.ai` and
+`apiProvider: firstParty` before sending the prompt. A missing account login
+stops the run; there is no API fallback. Stored credentials and the parent
+environment remain unchanged. The state file records only the verified auth
+method/provider, never credentials. Dry runs do not verify authentication.
 
 ## Pro, in both harnesses
 
@@ -101,8 +132,8 @@ error, read `browser.runtime.promptSubmitted` in
 `~/.oracle/sessions/<slug>/meta.json`. When it is true, the prompt reached
 ChatGPT and Pro may still answer: collect the answer with the same `npx`
 prefix and `session <slug> --live --write-output "<work>/pro.roundN.md"`,
-and count Pro as failed only if that returns no answer. `--no-web` is a
-handoff rule here.
+and count Pro as failed only if that returns no answer. `--no-web`, when
+set, is a handoff rule here.
 
 ## Failures
 

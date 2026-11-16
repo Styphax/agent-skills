@@ -1,11 +1,35 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const DEFAULT_MODEL = 'claude-fable-5-2';
+
+export function buildClaudeEnv(source = process.env) {
+  const excluded = new Set([
+    'ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_BASE_URL',
+    'ANTHROPIC_CUSTOM_HEADERS', 'CLAUDE_CODE_USE_BEDROCK',
+    'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY',
+  ]);
+  return Object.fromEntries(Object.entries(source).filter(([key]) => !excluded.has(key.toUpperCase())));
+}
+
+export function requireClaudeAccount(executable, env, run = execFileSync) {
+  let auth;
+  try {
+    auth = JSON.parse(run(executable, ['--safe-mode', 'auth', 'status', '--json'], {
+      env, encoding: 'utf8', shell: false, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    }));
+  } catch {
+    throw new Error('Cannot verify Claude account login. Run claude auth login; no review was started.');
+  }
+  if (auth?.loggedIn !== true || auth.authMethod !== 'claude.ai' || auth.apiProvider !== 'firstParty') {
+    throw new Error('Council requires Claude account login, not an API key or cloud provider. Run claude auth login; no review was started.');
+  }
+  return { authMethod: auth.authMethod, apiProvider: auth.apiProvider };
+}
 
 export function parseArgs(argv) {
   const options = { model: DEFAULT_MODEL, effort: 'xhigh', resume: false, noWeb: false, dryRun: false };
@@ -84,13 +108,13 @@ export function nextState(options, previous) {
   return previous;
 }
 
-function runClaude(executable, args, prompt, rawPath, stderrPath) {
+function runClaude(executable, args, prompt, rawPath, stderrPath, env) {
   return new Promise((resolve, reject) => {
     const out = fs.openSync(rawPath, 'wx');
     let err;
     try { err = fs.openSync(stderrPath, 'wx'); }
     catch (error) { fs.closeSync(out); throw error; }
-    const child = spawn(executable, args, { shell: false, windowsHide: true, stdio: ['pipe', out, err] });
+    const child = spawn(executable, args, { env, shell: false, windowsHide: true, stdio: ['pipe', out, err] });
     let failure;
     const stop = reason => {
       failure = new Error(reason);
@@ -118,8 +142,9 @@ export async function main(argv) {
   const prompt = fs.readFileSync(options.promptFile, 'utf8');
   if (!prompt.trim()) throw new Error('Empty handoff file.');
   const executable = findClaude();
+  const env = buildClaudeEnv();
   if (options.dryRun) {
-    console.log(JSON.stringify({ executable, args: buildArgs(options, '<saved-or-new-session-uuid>'), cwd: process.cwd(), timeoutMs: null }, null, 2));
+    console.log(JSON.stringify({ executable, args: buildArgs(options, '<saved-or-new-session-uuid>'), cwd: process.cwd(), requiredAuth: 'claude.ai', timeoutMs: null }, null, 2));
     return;
   }
   const lock = `${options.stateFile}.lock`;
@@ -140,9 +165,11 @@ export async function main(argv) {
     state.status = 'running';
     state.startedAt = new Date().toISOString();
     save();
+    state.authentication = requireClaudeAccount(executable, env);
+    save();
     const rawPath = `${options.stateFile}.round${round}.json`;
     const stderrPath = `${options.stateFile}.round${round}.stderr.txt`;
-    await runClaude(executable, buildArgs(options, state.sessionId), prompt, rawPath, stderrPath);
+    await runClaude(executable, buildArgs(options, state.sessionId), prompt, rawPath, stderrPath, env);
     const { result, reviewerModels } = parseOutput(fs.readFileSync(rawPath, 'utf8'));
     const answer = validateResult(result, options, state.sessionId, reviewerModels);
     state.turns = round;
