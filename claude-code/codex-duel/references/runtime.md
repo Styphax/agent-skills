@@ -4,9 +4,9 @@ Requires Node.js and authenticated Codex CLI. Use this skill's helper,
 `scripts/codex-duel.mjs`, from the task workspace. It calls `codex exec`
 directly, without changing the companion plugin or global configuration.
 
-Models: `astra` = `gpt-6-astra`, `sol` = `gpt-6.1-sol`, `luna` = `gpt-6-luna`,
-`terra` = `gpt-5.6-terra`. Full IDs also accepted: these four plus `gpt-6-sol`,
-`gpt-5.6-sol`, `gpt-5.6-luna`. Default: Astra, `xhigh`.
+Models: `astra` = `gpt-6.2-astra`, `sol` = `gpt-6.2-sol`, `luna` = `gpt-6-luna`,
+`terra` = `gpt-5.6-terra`. Full IDs also accepted: these four plus `gpt-6.1-sol`,
+`gpt-6-astra`, `gpt-6-sol`, `gpt-5.6-sol`, `gpt-5.6-luna`. Default: Astra, `xhigh`.
 
 ```text
 node "<skill>/scripts/codex-duel.mjs" --prompt-file "<work>/round1.md" --state-file "<work>/duel.json" --model astra --effort xhigh --background

@@ -54,7 +54,7 @@ node "<skill>/scripts/codex-member.mjs" status --state-file "<work>/sol.json"
 node "<skill>/scripts/codex-member.mjs" --prompt-file "<work>/round2.md" --state-file "<work>/sol.json" --model sol --effort xhigh --resume --background
 ```
 
-`astra` = `gpt-6-astra`, `sol` = `gpt-6.1-sol`. Poll `status` until every
+`astra` = `gpt-6.2-astra`, `sol` = `gpt-6.2-sol`. Poll `status` until every
 member has finished or failed; do not end the turn before that. The
 completed state carries the answer. Never pass `--write`: the lead makes
 authorized edits. Running this inside a Codex session is not yet verified.

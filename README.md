@@ -41,7 +41,7 @@ where the models weigh differently, not a single conclusion. `--steer` adds
 one pause after the merge in which the user steers round 2 (deepen, drop,
 add).
 
-## codex-duel 1.5.0 (runs in Claude Code)
+## codex-duel 1.5.1 (runs in Claude Code)
 
 ### Requirements
 
@@ -69,14 +69,14 @@ invoke it directly:
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--model` | `astra`, `sol`, `terra`, `luna` or the full ids `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
+| `--model` | `astra`, `sol`, `terra`, `luna` or the full ids `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna` | `astra` |
 | `--effort` | `low`, `medium`, `high`, `xhigh`, `max` | `xhigh` |
 | `--fast` | no value | off |
 | `--blind` | no value | off |
 | `--wide` | no value; includes a blind first pass | off |
 | `--steer` | no value, requires `--wide` | off |
 
-The aliases select `gpt-6-astra`, `gpt-6.1-sol`, `gpt-5.6-terra` and
+The aliases select `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-5.6-terra` and
 `gpt-6-luna`, respectively. Terra is a legacy option. Explicit full model
 IDs are preserved.
 
@@ -134,12 +134,12 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.6.1 (runs in Claude Code and Codex)
+## council 1.6.2 (runs in Claude Code and Codex)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository ([original
 SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
-Puts one question, decision, plan or review to GPT-6 Astra, GPT-6.1 Sol,
+Puts one question, decision, plan or review to GPT-6.2 Astra, GPT-6.2 Sol,
 ChatGPT Pro, Claude Opus 5.5 and Claude Fable 5.2, plus Claude Sonnet 5.5
 on request, in parallel, then integrates their
 positions into one answer with origin tags. Changes from the original: fixed

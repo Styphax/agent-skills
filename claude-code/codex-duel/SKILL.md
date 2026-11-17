@@ -3,7 +3,7 @@ name: codex-duel
 description: Run a bounded Claude-Codex review only when the user explicitly requests Codex Duel. Supports a blind first pass and exploration of multiple answers. Inspecting or editing the skill does not start a duel.
 allowed-tools: Bash(node:*)
 metadata:
-  version: 1.5.0
+  version: 1.5.1
 ---
 
 Claude leads; Codex reviews. Keep the lead model unchanged. Use at most
@@ -17,7 +17,7 @@ question. Preserve the conversation's constraints and language.
 
 | Flag | Meaning |
 | --- | --- |
-| `--model ID` | Reviewer model; default `gpt-6-astra`. Aliases in [runtime](references/runtime.md). |
+| `--model ID` | Reviewer model; default `gpt-6.2-astra`. Aliases in [runtime](references/runtime.md). |
 | `--effort LEVEL` | `low`, `medium`, `high`, `xhigh` (default), `max`. |
 | `--blind` | Independently answer first, then compare and challenge in round 2. |
 | `--wide` | Map viable answers instead of converging on one; includes a blind first pass. |

@@ -1,9 +1,9 @@
 ---
 name: council
-description: Put a question, decision, plan or review to a council of GPT-6 Astra, GPT-6.1 Sol, ChatGPT Pro, Claude Opus 5.5, Claude Fable 5.2 and optionally Claude Sonnet 5.5, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
+description: Put a question, decision, plan or review to a council of GPT-6.2 Astra, GPT-6.2 Sol, ChatGPT Pro, Claude Opus 5.5, Claude Fable 5.2 and optionally Claude Sonnet 5.5, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
 allowed-tools: Bash(node:*), Bash(npx -y @steipete/oracle@latest:*)
 metadata:
-  version: 1.6.1
+  version: 1.6.2
   source: https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md
 ---
 
@@ -114,6 +114,11 @@ No transcripts unless asked. A failed round does not undo completed ones;
 no automatic retry.
 
 ## CHANGELOG
+
+### 1.6.2 (2026-11-17)
+
+`astra` now selects GPT-6.2 Astra (`gpt-6.2-astra`) and `sol` selects
+GPT-6.2 Sol (`gpt-6.2-sol`).
 
 ### 1.6.1 (2026-11-16)
 

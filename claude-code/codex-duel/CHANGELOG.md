@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1 (2026-11-17)
+
+- Default reviewer and `astra` alias now select GPT-6.2 Astra (`gpt-6.2-astra`).
+- `sol` alias now selects GPT-6.2 Sol (`gpt-6.2-sol`). `gpt-6.1-sol` and `gpt-6-astra` are accepted as full IDs.
+
 ## 1.5.0 (2026-10-26)
 
 - Shortened SKILL.md and moved runtime and wide-mode details into references.
