@@ -10,7 +10,7 @@ Skills for Claude Code and OpenAI Codex.
 | `vw-lease-rates` | Codex | `codex/vw-lease-rates` |
 | `openrouter-agent` | Codex on Windows | `codex/openrouter-agent` |
 | `clear-writing` | Claude Code | `claude-code/clear-writing` |
-| `council` | Claude Code and Codex | `shared/council` |
+| `council` | Claude Code, Codex and Antigravity | `shared/council` |
 
 ## Duel skills
 
@@ -134,14 +134,14 @@ $claude-duel [flags] <question>
   Claude's structured event stream, not just on aggregate usage.
 - Maximum two Claude turns per duel.
 
-## council 1.6.2 (runs in Claude Code and Codex)
+## council 1.7.0 (runs in Claude Code, Codex and Antigravity)
 
 Adapted from the `council` skill in Theo Browne's (t3dotgg) MIT-licensed
 [tstack](https://github.com/t3dotgg/tstack) repository ([original
 SKILL.md](https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md)).
 Puts one question, decision, plan or review to GPT-6.2 Astra, GPT-6.2 Sol,
-ChatGPT Pro, Claude Opus 5.5 and Claude Fable 5.2, plus Claude Sonnet 5.5
-on request, in parallel, then integrates their
+ChatGPT Pro, Claude Opus 5.5, Claude Fable 5.2 and Gemini 4 Neon, plus
+Claude Sonnet 5.5 or other Gemini 4 models on request, in parallel, then integrates their
 positions into one answer with origin tags. Changes from the original: fixed
 members with their own runtime instructions instead of one flagship per
 provider, members always read-only, effort `xhigh`.
@@ -161,11 +161,15 @@ provider, members always read-only, effort `xhigh`.
   [Oracle](https://github.com/steipete/oracle) release through `npx`, so
   Oracle needs no separate install. Sign in once in the Chrome window
   Oracle opens on the first run.
+- For Gemini members: the Antigravity CLI (`agy`, tested with 1.5.12),
+  signed in once interactively under the default `~/.gemini` home. The
+  helper finds `agy` on PATH or in T3 Code's tool folder.
 
 ### Install
 
 Copy `shared/council` to `~/.claude/skills/council` or
-`~/.codex/skills/council`.
+`~/.codex/skills/council`. For Antigravity, list the folder that contains
+`council` in `~/.gemini/config/skills.json`.
 
 ### Usage
 
@@ -179,18 +183,19 @@ $council [flags] <request>
 
 | Flag | Values | Default |
 | --- | --- | --- |
-| `--members` | comma-separated subset of `astra`, `sol`, `pro`, `opus`, `fable`, `sonnet` | asked; all except Sonnet recommended |
-| `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs; Pro has no effort setting | asked; `xhigh` recommended |
+| `--members` | comma-separated subset of `astra`, `sol`, `pro`, `opus`, `fable`, `sonnet`, `neon`, `argon`, `hydrogen`, `carbon` | asked; Astra, Sol, Pro, Opus, Fable and Neon recommended |
+| `--effort` | `low`, `medium`, `high`, `xhigh`, `max`; one level or `member=LEVEL` pairs; Pro has no effort setting; Neon and Hydrogen go up to `xhigh`, Argon and Carbon up to `high` | asked; `xhigh` recommended |
 | `--target-score` | 0 to 10, decimal comma or point; reviews only; a bare number before the request also sets it (`/council 9 <request>`) | 8.5 |
 | `--no-web` | no value | off; set only when the user asks for it in the call or says yes to a direct question before round 1 |
 
 ### Notable behavior
 
-- Without `--members` and `--effort`, the skill first asks with a picker of
-  three questions: OpenAI members, Anthropic members and effort. Each
+- Without `--members` and `--effort`, the skill first asks with a picker:
+  OpenAI, Anthropic and Google members and effort in Claude Code, and in
+  Codex three questions with Anthropic and Google sharing one. Each
   question names all its choices, including those without a button, and
-  accepts any typed combination. Defaults: every member except Sonnet, at
-  `xhigh`. Claude Code shows the members as multi-select buttons. Codex
+  accepts any typed combination. Defaults: Astra, Sol, Pro, Opus, Fable
+  and Neon, at `xhigh`. Claude Code shows the members as multi-select buttons. Codex
   shows three preset buttons per question, because its picker is
   single-choice with at most three options. Codex has the picker in Plan
   mode, and in Default mode only after `codex features enable
@@ -231,6 +236,18 @@ $council [flags] <request>
   an error after the prompt was sent, for example because its check of the
   sent message missed an attachment, the lead collects the answer with
   `oracle session <slug> --live` before counting Pro as failed.
+- Gemini members run through `scripts/gemini-member.mjs` and `agy`. Two
+  agent definitions in `gemini/.agents/agents/` limit them to reading files
+  and, unless `--no-web`, web search; the helper rejects an answer when any
+  other tool ran. They cannot list folders, so the handoff names every file
+  by absolute path, and web search gives summaries, not page reads. The
+  helper removes Google API keys from the child environment and checks with
+  `agy models` that the account offers the model; `--dry-run` runs that
+  check without sending a prompt.
+- A Gemini session in Antigravity can lead. It starts the Codex helper
+  without `--background` and waits in a loop of short commands inside its
+  turn, because T3 Code does not wake a finished turn. Tested with Neon
+  leading Sol, Sonnet, Neon and Pro; a long Pro round costs many wait steps.
 - Members run read-only; the lead makes authorized edits. In Claude Code
   the Opus and Sonnet subagents are bound by the handoff, not by tool
   limits, and their model alias is requested, not checked. Fable runs

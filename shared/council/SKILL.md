@@ -1,9 +1,9 @@
 ---
 name: council
-description: Put a question, decision, plan or review to a council of GPT-6.2 Astra, GPT-6.2 Sol, ChatGPT Pro, Claude Opus 5.5, Claude Fable 5.2 and optionally Claude Sonnet 5.5, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
+description: Put a question, decision, plan or review to a council of GPT-6.2 Astra, GPT-6.2 Sol, ChatGPT Pro, Claude Opus 5.5, Claude Fable 5.2, Gemini 4 Neon and optionally Claude Sonnet 5.5 or other Gemini 4 models, only when the user explicitly asks for the council. Inspecting or editing the skill does not convene it.
 allowed-tools: Bash(node:*), Bash(npx -y @steipete/oracle@latest:*)
 metadata:
-  version: 1.6.2
+  version: 1.7.0
   source: https://github.com/t3dotgg/tstack/blob/main/skills/council/SKILL.md
 ---
 
@@ -16,11 +16,18 @@ Claude members always use the user's Claude account login. Do not use an API
 key or a cloud-provider route. The CLI helper removes inherited API auth
 overrides for its child process and verifies `claude.ai` login before sending
 the prompt. Keep stored keys and the parent environment unchanged.
+Gemini members use the Antigravity CLI's account login. Their helper
+removes Google API keys and T3 Code's `GEMINI_HOME` from the child
+environment, keeps agy off its API-key route, and checks with `agy models`
+that the account offers the model before sending.
 
 Flags before the request: `--members LIST` (subset of
-`astra,sol,pro,opus,fable,sonnet`), `--effort LEVEL` (`low`, `medium`,
+`astra,sol,pro,opus,fable,sonnet,neon,argon,hydrogen,carbon`; the last
+four are Gemini 4 models), `--effort LEVEL` (`low`, `medium`,
 `high`, `xhigh`, `max`; one level for all or `member=LEVEL` pairs; Pro
-always runs at ChatGPT's Pro tier), `--target-score N` (reviews only: N
+always runs at ChatGPT's Pro tier; Neon and Hydrogen stop at `xhigh`,
+Argon and Carbon at `high`, so when the chosen level does not exist for a
+Gemini member, ask for a `member=LEVEL` pair), `--target-score N` (reviews only: N
 from 0 to 10 with a decimal comma or point, default 8.5; further rounds
 continue while a member's latest score is below it, within the stop rules
 under Further rounds; a bare number before the request, as in
@@ -30,8 +37,8 @@ review), `--no-web` (supplied
 material only; state it in the handoff). If members or effort are not
 given, ask first with the picker in [runtime](references/runtime.md), as
 an optional question whose text names every member and effort level.
-Defaults: Astra, Sol, Pro, Opus and Fable at `xhigh`; Sonnet only when
-chosen. If no question tool is listed, ask in one plain-text line naming
+Defaults: Astra, Sol, Pro, Opus, Fable and Neon at `xhigh`; Sonnet,
+Argon, Hydrogen and Carbon only when chosen. If no question tool is listed, ask in one plain-text line naming
 all options and the defaults. If the tool returns no answer, use the
 defaults and say so. Without a request, use the latest substantive one.
 Preserve the conversation's constraints and language. Unknown options or
@@ -62,7 +69,8 @@ refuse a change on resume.
    counterargument and the evidence that would change it. For a review,
    also ask for findings by severity and a score out of 10, half points
    allowed. Members stay read-only, may not delegate and must not read
-   `work/` beyond the handoff. Impose no research, time or token budget
+   `work/` beyond the handoff. Name every file a member should read by its
+   absolute path: Pro and Gemini members cannot list or search folders. Impose no research, time or token budget
    unless the user asks.
 4. Launch every member with the same handoff as described in
    [runtime](references/runtime.md) and wait for all. If a member fails,
@@ -114,6 +122,19 @@ No transcripts unless asked. A failed round does not undo completed ones;
 no automatic retry.
 
 ## CHANGELOG
+
+### 1.7.0 (2026-11-19)
+
+Added Gemini 4 members through the Antigravity CLI (`agy`) and
+`scripts/gemini-member.mjs`: `neon` (default, `xhigh`), `argon`,
+`hydrogen` and `carbon`. Two agent definitions in `gemini/.agents/agents/`
+limit them to reading files, plus web search unless `--no-web`, and the
+helper rejects an answer when any other tool ran. The handoff names every
+file by absolute path. A Gemini session in Antigravity can lead the
+council; there, `codex-member.mjs` runs without `--background`, and the
+lead waits in a loop of short commands inside its turn. Tested on
+2026-11-19 with Neon and Hydrogen as members and Neon as lead of Sol,
+Sonnet, Neon and Pro; Carbon is not offered on the tested account.
 
 ### 1.6.2 (2026-11-17)
 
